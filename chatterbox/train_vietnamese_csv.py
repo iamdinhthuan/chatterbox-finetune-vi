@@ -79,7 +79,15 @@ def main():
                        help="Use mixed precision training")
     parser.add_argument("--do_eval", action="store_true", default=True,
                        help="Run evaluation")
-    
+
+    # Best model tracking arguments
+    parser.add_argument("--metric_for_best_model", type=str, default="eval_loss",
+                       help="Metric to use for best model selection")
+    parser.add_argument("--greater_is_better", action="store_true", default=False,
+                       help="Whether higher metric values are better")
+    parser.add_argument("--load_best_model_at_end", action="store_true", default=True,
+                       help="Load best model at the end of training")
+
     args = parser.parse_args()
     
     # Setup logging
@@ -101,6 +109,15 @@ def main():
     logger.info(f"Training CSV: {args.train_csv}")
     logger.info(f"Validation CSV: {args.val_csv if args.do_eval else 'None'}")
     logger.info(f"Output directory: {args.output_dir}")
+
+    if args.do_eval:
+        logger.info(f"Best model tracking enabled:")
+        logger.info(f"  - Metric: {args.metric_for_best_model}")
+        logger.info(f"  - Greater is better: {args.greater_is_better}")
+        logger.info(f"  - Load best model at end: {args.load_best_model_at_end}")
+        logger.info(f"  - Save total limit: {args.save_total_limit}")
+    else:
+        logger.info("Evaluation disabled - will save latest checkpoints only")
     
     # Create argument objects
     model_args = ModelArguments(
@@ -137,6 +154,10 @@ def main():
         save_strategy="steps",
         save_steps=args.save_steps,
         save_total_limit=args.save_total_limit,
+        # Best model tracking configuration
+        metric_for_best_model=args.metric_for_best_model if args.do_eval else None,
+        greater_is_better=args.greater_is_better if args.do_eval else None,
+        load_best_model_at_end=args.load_best_model_at_end if args.do_eval else False,
         fp16=args.fp16,
         report_to="tensorboard",
         dataloader_num_workers=args.dataloader_num_workers,

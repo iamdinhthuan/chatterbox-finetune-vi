@@ -1,33 +1,29 @@
-import argparse
-# Removed Beam imports for local training
-from huggingface_hub import snapshot_download
+import gc
+import json
 import logging
 import os
-import json
-from pathlib import Path
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Union, Any
-from langdetect import detect
-import pykakasi
-import yaml
 import time
-import threading
-from functools import wraps
-from contextlib import contextmanager
-import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Dict, List, Optional, Union
+
+import datasets
+import librosa
+import numpy as np
+import pandas as pd
+import psutil
+import pykakasi
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import webdataset as wds
+import yaml
+from datasets import load_dataset, DatasetDict, VerificationMode, Audio, logging as ds_logging, DownloadConfig
+from huggingface_hub import snapshot_download
+from langdetect import detect
 from torch.utils.data import Dataset, IterableDataset
-import librosa
-import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
-import psutil
-import gc
-import pandas as pd
-
-
 from transformers import (
     HfArgumentParser,
     EarlyStoppingCallback,
@@ -36,18 +32,14 @@ from transformers import (
     Trainer,
     PretrainedConfig
 )
-from transformers.trainer_utils import speed_metrics
 from transformers import TrainingArguments as HfTrainingArguments
 from transformers.trainer_utils import get_last_checkpoint
-from datasets import load_dataset, DatasetDict, VerificationMode, Audio, logging as ds_logging, DownloadConfig
-import datasets
-import webdataset as wds
+from transformers.trainer_utils import speed_metrics
 
-from chatterbox.tts import ChatterboxTTS, Conditionals, punc_norm, REPO_ID
-from chatterbox.models.t3.t3 import T3, T3Cond
+from chatterbox.models.s3tokenizer import S3_SR
 from chatterbox.models.t3.modules.t3_config import T3Config
-from chatterbox.models.s3tokenizer import S3_SR, SPEECH_VOCAB_SIZE
-from chatterbox.models.s3gen import S3GEN_SR
+from chatterbox.models.t3.t3 import T3Cond
+from chatterbox.tts import ChatterboxTTS, punc_norm, REPO_ID
 from chatterbox.utils.training_args import CustomTrainingArguments
 
 
@@ -68,7 +60,6 @@ class ChatterboxT3Wrapper(nn.Module):
                 t3_cond_emotion_adv,
                 labels_text=None,
                 labels_speech=None):
-
         # Create T3Cond object from individual components
         current_t3_cond = T3Cond(
             speaker_emb=t3_cond_speaker_emb,
@@ -90,6 +81,7 @@ class ChatterboxT3Wrapper(nn.Module):
 
         total_loss = loss_text + loss_speech
         return total_loss, speech_logits
+
 
 logger = logging.getLogger(__name__)
 
@@ -131,11 +123,11 @@ def speech_collate_fn(batch):
         # Create labels (next token prediction)
         # For text: predict tokens[1:] from tokens[:-1]
         if text_len > 1:
-            labels_text[i, :text_len-1] = item["text_tokens"][1:text_len]
+            labels_text[i, :text_len - 1] = item["text_tokens"][1:text_len]
 
         # For speech: predict tokens[1:] from tokens[:-1]
         if speech_len > 1:
-            labels_speech[i, :speech_len-1] = item["speech_tokens"][1:speech_len]
+            labels_speech[i, :speech_len - 1] = item["speech_tokens"][1:speech_len]
 
     return {
         "text_tokens": text_tokens,
@@ -160,30 +152,35 @@ class ModelArguments:
     model_config: Optional[str] = field(
         default=None,
         metadata={"help": "Path to a json file specifying local paths to models to load."}
-        
+
     )
     local_model_dir: Optional[str] = field(
         default=None,
-        metadata={"help": "Path to local directory containing ve.safetensors, t3_cfg.safetensors, etc. Overrides model_name_or_path for loading."}
+        metadata={
+            "help": "Path to local directory containing ve.safetensors, t3_cfg.safetensors, etc. Overrides model_name_or_path for loading."}
     )
-    
+
     cache_dir: Optional[str] = field(
         default=None,
         metadata={"help": "Where do you want to store the pretrained models downloaded from huggingface.co"},
     )
     freeze_voice_encoder: bool = field(default=True, metadata={"help": "Freeze the Voice Encoder."})
     freeze_s3gen: bool = field(default=True, metadata={"help": "Freeze the S3Gen model (speech token to waveform)."})
-    freeze_text_embeddings: Optional[int] = field(default=None, metadata={"help": "Number of original text embedding tokens to freeze (e.g., 704 for original vocab size)."})
+    freeze_text_embeddings: Optional[int] = field(default=None, metadata={
+        "help": "Number of original text embedding tokens to freeze (e.g., 704 for original vocab size)."})
+
 
 @dataclass
 class DataArguments:
     dataset_dir: Optional[str] = field(
         default=None,
-        metadata={"help": "Path to the directory containing audio files and text files. Used if dataset_name is not provided."}
+        metadata={
+            "help": "Path to the directory containing audio files and text files. Used if dataset_name is not provided."}
     )
     dataset_dirs: List[str] = field(
         default_factory=list,
-        metadata={"help": "List of paths to multiple dataset directories (e.g., for multi-language training). Each directory should contain JSON and audio files."}
+        metadata={
+            "help": "List of paths to multiple dataset directories (e.g., for multi-language training). Each directory should contain JSON and audio files."}
     )
     metadata_file: Optional[str] = field(
         default=None,
@@ -205,29 +202,34 @@ class DataArguments:
         default=None,
         metadata={"help": "The configuration name of the dataset to use (via the Hugging Face datasets library)."}
     )
-    train_split_name: Optional[str] = field(default="train", metadata={"help": "The name of the training data set split."})
-    
+    train_split_name: Optional[str] = field(default="train",
+                                            metadata={"help": "The name of the training data set split."})
+
     train_splits: List[str] = field(
         default_factory=list,
         metadata={"help": "List of language splits to use (e.g., ['de', 'fr'])."}
     )
-    eval_split_name: Optional[str] = field(default="validation", metadata={"help": "The name of the evaluation data set split."})
+    eval_split_name: Optional[str] = field(default="validation",
+                                           metadata={"help": "The name of the evaluation data set split."})
     text_column_name: str = field(default="text", metadata={"help": "The name of the text column in the HF dataset."})
-    audio_column_name: str = field(default="audio", metadata={"help": "The name of the audio column in the HF dataset."})
+    audio_column_name: str = field(default="audio",
+                                   metadata={"help": "The name of the audio column in the HF dataset."})
     max_text_len: int = field(default=256, metadata={"help": "Maximum length of text tokens (including BOS/EOS)."})
     max_speech_len: int = field(default=800, metadata={"help": "Maximum length of speech tokens (including BOS/EOS)."})
     audio_prompt_duration_s: float = field(
-        default=3.0, metadata={"help": "Duration of audio (from start) to use for T3 conditioning prompt tokens (in seconds)."}
+        default=3.0,
+        metadata={"help": "Duration of audio (from start) to use for T3 conditioning prompt tokens (in seconds)."}
     )
     eval_split_size: float = field(
-        default=0.0005, metadata={"help": "Fraction of data to use for evaluation if splitting manually. Not used if dataset_name provides eval split."}
+        default=0.0005, metadata={
+            "help": "Fraction of data to use for evaluation if splitting manually. Not used if dataset_name provides eval split."}
     )
     preprocessing_num_workers: Optional[int] = field(
         default=None,
         metadata={"help": "The number of processes to use for the preprocessing."},
     )
     ignore_verifications: bool = field(
-        default=False, metadata={"help":"Set to true to ignore dataset verifications."}
+        default=False, metadata={"help": "Set to true to ignore dataset verifications."}
     )
     lang_split: Optional[str] = field(
         default=None,
@@ -247,16 +249,20 @@ class DataArguments:
     )
     use_webdataset: bool = field(
         default=False,
-        metadata={"help": "Use webdataset format for optimized streaming and loading of large datasets like Emilia YODAS."}
+        metadata={
+            "help": "Use webdataset format for optimized streaming and loading of large datasets like Emilia YODAS."}
     )
     webdataset_urls: Optional[str] = field(
         default=None,
-        metadata={"help": "URL pattern for webdataset files (e.g., 'https://example.com/data-{000000..001000}.tar'). Used when use_webdataset=True."}
+        metadata={
+            "help": "URL pattern for webdataset files (e.g., 'https://example.com/data-{000000..001000}.tar'). Used when use_webdataset=True."}
     )
     webdataset_shuffle_buffer: int = field(
         default=1000,
-        metadata={"help": "Shuffle buffer size for webdataset streaming. Larger values improve randomness but use more memory."}
+        metadata={
+            "help": "Shuffle buffer size for webdataset streaming. Larger values improve randomness but use more memory."}
     )
+
 
 # --- Dataset Class ---
 class SpeechFineTuningDataset(Dataset):
@@ -266,7 +272,7 @@ class SpeechFineTuningDataset(Dataset):
                  hf_dataset: Union[datasets.Dataset, List[Dict[str, str]]],
                  is_hf_format: bool,
                  model_dir: str,
-                 m_paths : dict = None,
+                 m_paths: dict = None,
                  device: str = "cpu"):
         # Store raw args
         self.data_args = data_args
@@ -306,10 +312,12 @@ class SpeechFineTuningDataset(Dataset):
                     if "text" in meta:
                         text = meta["text"]
                     else:
-                        logger.error(f"'text' field not found in JSON metadata. Available JSON keys: {list(meta.keys())}. Skipping.")
+                        logger.error(
+                            f"'text' field not found in JSON metadata. Available JSON keys: {list(meta.keys())}. Skipping.")
                         return None, None
                 else:
-                    logger.error(f"Text column '{self.data_args.text_column_name}' not found. Available keys: {list(item.keys())}. Skipping.")
+                    logger.error(
+                        f"Text column '{self.data_args.text_column_name}' not found. Available keys: {list(item.keys())}. Skipping.")
                     return None, None
             except Exception as e:
                 logger.error(f"Error loading text for item {idx}: {e}. Skipping.")
@@ -326,11 +334,13 @@ class SpeechFineTuningDataset(Dataset):
                 else:
                     for alt in ["audio", "wav"]:
                         if alt in item:
-                            logger.warning(f"Column '{self.data_args.audio_column_name}' not found. Using '{alt}' instead.")
+                            logger.warning(
+                                f"Column '{self.data_args.audio_column_name}' not found. Using '{alt}' instead.")
                             audio_data = item[alt]
                             break
                     else:
-                        logger.error(f"Audio column '{self.data_args.audio_column_name}' not found. Available keys: {list(item.keys())}. Skipping.")
+                        logger.error(
+                            f"Audio column '{self.data_args.audio_column_name}' not found. Available keys: {list(item.keys())}. Skipping.")
                         return None, None
 
             # Load audio from bytes (streaming), file path, or pre-loaded dict
@@ -393,9 +403,9 @@ class SpeechFineTuningDataset(Dataset):
         lang = detect(normalized_text)
         if lang == "ja":
             pka_converter = pykakasi.kakasi()
-            pka_converter.setMode("J","H")  # Kanji to Hiragana
-            pka_converter.setMode("K","H")  # Katakana to Hiragana
-            pka_converter.setMode("H","H")  # Hiragana stays Hiragana
+            pka_converter.setMode("J", "H")  # Kanji to Hiragana
+            pka_converter.setMode("K", "H")  # Katakana to Hiragana
+            pka_converter.setMode("H", "H")  # Hiragana stays Hiragana
             conv = pka_converter.getConverter()
             normalized_text = conv.do(normalized_text)
         elif lang == "fr":
@@ -407,8 +417,9 @@ class SpeechFineTuningDataset(Dataset):
         text_tokens = F.pad(raw_text_tokens, (1, 0), value=self.chatterbox_t3_config.start_text_token)
         text_tokens = F.pad(text_tokens, (0, 1), value=self.chatterbox_t3_config.stop_text_token)
         if len(text_tokens) > self.data_args.max_text_len:
-            text_tokens = text_tokens[:self.data_args.max_text_len-1]
-            text_tokens = torch.cat([text_tokens, torch.tensor([self.chatterbox_t3_config.stop_text_token], device=text_tokens.device)])
+            text_tokens = text_tokens[:self.data_args.max_text_len - 1]
+            text_tokens = torch.cat(
+                [text_tokens, torch.tensor([self.chatterbox_t3_config.stop_text_token], device=text_tokens.device)])
         text_token_len = torch.tensor(len(text_tokens), dtype=torch.long)
 
         try:
@@ -426,30 +437,36 @@ class SpeechFineTuningDataset(Dataset):
         speech_tokens = F.pad(raw_speech_tokens, (1, 0), value=self.chatterbox_t3_config.start_speech_token)
         speech_tokens = F.pad(speech_tokens, (0, 1), value=self.chatterbox_t3_config.stop_speech_token)
         if len(speech_tokens) > self.data_args.max_speech_len:
-            speech_tokens = speech_tokens[:self.data_args.max_speech_len-1]
-            speech_tokens = torch.cat([speech_tokens, torch.tensor([self.chatterbox_t3_config.stop_speech_token], device=speech_tokens.device)])
+            speech_tokens = speech_tokens[:self.data_args.max_speech_len - 1]
+            speech_tokens = torch.cat([speech_tokens, torch.tensor([self.chatterbox_t3_config.stop_speech_token],
+                                                                   device=speech_tokens.device)])
         speech_token_len = torch.tensor(len(speech_tokens), dtype=torch.long)
 
         cond_audio_segment = wav_16k[:self.enc_cond_audio_len_samples]
-        if len(cond_audio_segment) == 0 :
+        if len(cond_audio_segment) == 0:
             cond_prompt_speech_tokens = torch.zeros(self.chatterbox_t3_config.speech_cond_prompt_len, dtype=torch.long)
         else:
             try:
-                cond_prompt_tokens_batch, _ = self.speech_tokenizer.forward([cond_audio_segment], max_len=self.chatterbox_t3_config.speech_cond_prompt_len)
+                cond_prompt_tokens_batch, _ = self.speech_tokenizer.forward([cond_audio_segment],
+                                                                            max_len=self.chatterbox_t3_config.speech_cond_prompt_len)
                 if cond_prompt_tokens_batch is None:
-                     cond_prompt_speech_tokens = torch.zeros(self.chatterbox_t3_config.speech_cond_prompt_len, dtype=torch.long)
+                    cond_prompt_speech_tokens = torch.zeros(self.chatterbox_t3_config.speech_cond_prompt_len,
+                                                            dtype=torch.long)
                 else:
                     cond_prompt_speech_tokens = cond_prompt_tokens_batch.squeeze(0)
             except Exception as e:
-                cond_prompt_speech_tokens = torch.zeros(self.chatterbox_t3_config.speech_cond_prompt_len, dtype=torch.long)
+                cond_prompt_speech_tokens = torch.zeros(self.chatterbox_t3_config.speech_cond_prompt_len,
+                                                        dtype=torch.long)
 
         if cond_prompt_speech_tokens.size(0) != self.chatterbox_t3_config.speech_cond_prompt_len:
             current_len = cond_prompt_speech_tokens.size(0)
             target_len = self.chatterbox_t3_config.speech_cond_prompt_len
-            if current_len > target_len: cond_prompt_speech_tokens = cond_prompt_speech_tokens[:target_len]
-            else: cond_prompt_speech_tokens = F.pad(cond_prompt_speech_tokens, (0, target_len - current_len), value=0)
+            if current_len > target_len:
+                cond_prompt_speech_tokens = cond_prompt_speech_tokens[:target_len]
+            else:
+                cond_prompt_speech_tokens = F.pad(cond_prompt_speech_tokens, (0, target_len - current_len), value=0)
 
-        emotion_adv_scalar=0.5
+        emotion_adv_scalar = 0.5
         emotion_adv_scalar_tensor = torch.tensor(emotion_adv_scalar, dtype=torch.float)
 
         return_dict = {
@@ -492,10 +509,10 @@ class SpeechFineTuningDataset(Dataset):
                         voice_encoder_path=resolve_path(self.m_paths["voice_encoder_path"]),
                         t3_path=resolve_path(self.m_paths["t3_path"]),
                         s3gen_path=resolve_path(self.m_paths["s3gen_path"]),
-                        tokenizer_path= self.m_paths["tokenizer_path"],
+                        tokenizer_path=self.m_paths["tokenizer_path"],
                         conds_path=resolve_path(self.m_paths["conds_path"]),
                         device="cpu"
-                        )
+                    )
                 else:
                     pbar.set_description("Loading from local directory...")
                     self.chatterbox_model = ChatterboxTTS.from_local(self._model_dir, device=self._device)
@@ -558,7 +575,8 @@ class CSVSpeechDataset(Dataset):
         required_columns = ['audio', 'transcript']
         missing_columns = [col for col in required_columns if col not in self.df.columns]
         if missing_columns:
-            raise ValueError(f"CSV file missing required columns: {missing_columns}. Found columns: {list(self.df.columns)}")
+            raise ValueError(
+                f"CSV file missing required columns: {missing_columns}. Found columns: {list(self.df.columns)}")
 
         # Filter out rows with missing data
         initial_count = len(self.df)
@@ -620,9 +638,9 @@ class CSVSpeechDataset(Dataset):
             lang = detect(normalized_text)
             if lang == "ja":
                 pka_converter = pykakasi.kakasi()
-                pka_converter.setMode("J","H")  # Kanji to Hiragana
-                pka_converter.setMode("K","H")  # Katakana to Hiragana
-                pka_converter.setMode("H","H")  # Hiragana stays Hiragana
+                pka_converter.setMode("J", "H")  # Kanji to Hiragana
+                pka_converter.setMode("K", "H")  # Katakana to Hiragana
+                pka_converter.setMode("H", "H")  # Hiragana stays Hiragana
                 conv = pka_converter.getConverter()
                 normalized_text = conv.do(normalized_text)
             elif lang == "fr":
@@ -642,8 +660,9 @@ class CSVSpeechDataset(Dataset):
             text_tokens = F.pad(text_tokens, (0, 1), value=self.chatterbox_t3_config.stop_text_token)
 
             if len(text_tokens) > self.data_args.max_text_len:
-                text_tokens = text_tokens[:self.data_args.max_text_len-1]
-                text_tokens = torch.cat([text_tokens, torch.tensor([self.chatterbox_t3_config.stop_text_token], device=text_tokens.device)])
+                text_tokens = text_tokens[:self.data_args.max_text_len - 1]
+                text_tokens = torch.cat(
+                    [text_tokens, torch.tensor([self.chatterbox_t3_config.stop_text_token], device=text_tokens.device)])
             text_token_len = torch.tensor(len(text_tokens), dtype=torch.long)
         except Exception as e:
             logger.error(f"Error tokenizing text '{text[:50]}...': {e}")
@@ -664,8 +683,9 @@ class CSVSpeechDataset(Dataset):
         speech_tokens = F.pad(raw_speech_tokens, (1, 0), value=self.chatterbox_t3_config.start_speech_token)
         speech_tokens = F.pad(speech_tokens, (0, 1), value=self.chatterbox_t3_config.stop_speech_token)
         if len(speech_tokens) > self.data_args.max_speech_len:
-            speech_tokens = speech_tokens[:self.data_args.max_speech_len-1]
-            speech_tokens = torch.cat([speech_tokens, torch.tensor([self.chatterbox_t3_config.stop_speech_token], device=speech_tokens.device)])
+            speech_tokens = speech_tokens[:self.data_args.max_speech_len - 1]
+            speech_tokens = torch.cat([speech_tokens, torch.tensor([self.chatterbox_t3_config.stop_speech_token],
+                                                                   device=speech_tokens.device)])
         speech_token_len = torch.tensor(len(speech_tokens), dtype=torch.long)
 
         # Conditioning audio segment
@@ -674,13 +694,16 @@ class CSVSpeechDataset(Dataset):
             cond_prompt_speech_tokens = torch.zeros(self.chatterbox_t3_config.speech_cond_prompt_len, dtype=torch.long)
         else:
             try:
-                cond_prompt_tokens_batch, _ = self.speech_tokenizer.forward([cond_audio_segment], max_len=self.chatterbox_t3_config.speech_cond_prompt_len)
+                cond_prompt_tokens_batch, _ = self.speech_tokenizer.forward([cond_audio_segment],
+                                                                            max_len=self.chatterbox_t3_config.speech_cond_prompt_len)
                 if cond_prompt_tokens_batch is None:
-                    cond_prompt_speech_tokens = torch.zeros(self.chatterbox_t3_config.speech_cond_prompt_len, dtype=torch.long)
+                    cond_prompt_speech_tokens = torch.zeros(self.chatterbox_t3_config.speech_cond_prompt_len,
+                                                            dtype=torch.long)
                 else:
                     cond_prompt_speech_tokens = cond_prompt_tokens_batch.squeeze(0)
             except Exception as e:
-                cond_prompt_speech_tokens = torch.zeros(self.chatterbox_t3_config.speech_cond_prompt_len, dtype=torch.long)
+                cond_prompt_speech_tokens = torch.zeros(self.chatterbox_t3_config.speech_cond_prompt_len,
+                                                        dtype=torch.long)
 
         if cond_prompt_speech_tokens.size(0) != self.chatterbox_t3_config.speech_cond_prompt_len:
             current_len = cond_prompt_speech_tokens.size(0)
@@ -789,7 +812,7 @@ class DetailedProgressCallback(TrainerCallback):
         if state.global_step % 10 == 0 or (current_time - self.last_log_time) >= 30:
             # Calculate average step time
             if len(self.step_times) >= 2:
-                recent_times = [self.step_times[i] - self.step_times[i-1] for i in range(1, len(self.step_times))]
+                recent_times = [self.step_times[i] - self.step_times[i - 1] for i in range(1, len(self.step_times))]
                 avg_step_time = sum(recent_times) / len(recent_times)
             else:
                 avg_step_time = step_time
@@ -809,8 +832,8 @@ class DetailedProgressCallback(TrainerCallback):
                 gpu_memory_str = f", GPU_memory={gpu_memory_mb:.1f}MB"
 
             logger.info(f"Training step {state.global_step}/{args.max_steps if args.max_steps > 0 else 'unknown'}: "
-                       f"avg_step_time={avg_step_time:.3f}s, samples_processed={self.samples_processed}, "
-                       f"samples/sec={samples_per_sec:.2f}, memory={memory_mb:.1f}MB{gpu_memory_str}")
+                        f"avg_step_time={avg_step_time:.3f}s, samples_processed={self.samples_processed}, "
+                        f"samples/sec={samples_per_sec:.2f}, memory={memory_mb:.1f}MB{gpu_memory_str}")
 
             self.last_log_time = current_time
 
@@ -826,12 +849,13 @@ class DetailedProgressCallback(TrainerCallback):
             current_time = time.time()
             total_time = current_time - self.start_time
             logger.info(f"Training metrics at step {state.global_step}: loss={logs['loss']:.4f}, "
-                       f"learning_rate={logs.get('learning_rate', 'N/A')}, "
-                       f"total_time={total_time/60:.1f}min")
+                        f"learning_rate={logs.get('learning_rate', 'N/A')}, "
+                        f"total_time={total_time / 60:.1f}min")
 
 
 # --- Main Training Function ---
 CHATTERBOX_PROJECT = "./chatterbox-project"
+
 
 def run_training(model_args, data_args, training_args, is_local=False):
     # Optional: Login to HuggingFace if needed for model downloads
@@ -896,7 +920,8 @@ def run_training(model_args, data_args, training_args, is_local=False):
 
         # Add progress bar for model download
         with tqdm(desc="Downloading model from HuggingFace", unit="B", unit_scale=True) as pbar:
-            snapshot_download(repo_name, local_dir_use_symlinks=False, local_dir=repo_home_weights, token=os.getenv("HF_TOKEN"))
+            snapshot_download(repo_name, local_dir_use_symlinks=False, local_dir=repo_home_weights,
+                              token=os.getenv("HF_TOKEN"))
             pbar.update(1)
             pbar.set_description("Download completed")
 
@@ -932,10 +957,10 @@ def run_training(model_args, data_args, training_args, is_local=False):
                 voice_encoder_path=voice_encoder_path,
                 t3_path=t3_path,
                 s3gen_path=s3gen_path,
-                tokenizer_path= m_paths["tokenizer_path"],
+                tokenizer_path=m_paths["tokenizer_path"],
                 conds_path=resolve_model_path(m_paths["conds_path"]),
                 device="cpu"
-                )
+            )
             pbar.update(1)
             pbar.set_description("Model loading completed")
 
@@ -960,11 +985,12 @@ def run_training(model_args, data_args, training_args, is_local=False):
         from huggingface_hub import hf_hub_download as hf_download
 
         # Add progress bar for file downloads
-        with tqdm(desc="Downloading model files", total=len(files_to_download)+1) as pbar:
+        with tqdm(desc="Downloading model files", total=len(files_to_download) + 1) as pbar:
             for f in files_to_download:
                 try:
                     pbar.set_description(f"Downloading {f}")
-                    hf_download(repo_id=repo_to_download, filename=f, local_dir=download_dir, local_dir_use_symlinks=False, cache_dir=model_args.cache_dir)
+                    hf_download(repo_id=repo_to_download, filename=f, local_dir=download_dir,
+                                local_dir_use_symlinks=False, cache_dir=model_args.cache_dir)
                     pbar.update(1)
                 except Exception as e:
                     logger.warning(f"Could not download {f} from {repo_to_download}: {e}.")
@@ -972,7 +998,8 @@ def run_training(model_args, data_args, training_args, is_local=False):
 
             try:
                 pbar.set_description("Downloading conds.pt")
-                hf_download(repo_id=repo_to_download, filename="conds.pt", local_dir=download_dir, local_dir_use_symlinks=False, cache_dir=model_args.cache_dir)
+                hf_download(repo_id=repo_to_download, filename="conds.pt", local_dir=download_dir,
+                            local_dir_use_symlinks=False, cache_dir=model_args.cache_dir)
             except:
                 logger.info("conds.pt not found on Hub or failed to download for this model.")
             pbar.update(1)
@@ -1001,8 +1028,8 @@ def run_training(model_args, data_args, training_args, is_local=False):
     logger.info("Loading and processing dataset...")
     verification_mode = VerificationMode.NO_CHECKS if data_args.ignore_verifications else VerificationMode.BASIC_CHECKS
 
-    train_hf_dataset: Union[datasets.Dataset, List[Dict[str,str]]]
-    eval_hf_dataset: Optional[Union[datasets.Dataset, List[Dict[str,str]]]] = None
+    train_hf_dataset: Union[datasets.Dataset, List[Dict[str, str]]]
+    eval_hf_dataset: Optional[Union[datasets.Dataset, List[Dict[str, str]]]] = None
     streaming = None
 
     # Dataset loading logic (simplified for local training)
@@ -1074,7 +1101,8 @@ def run_training(model_args, data_args, training_args, is_local=False):
         logger.info("Dataset loaded.")
 
         if data_args.train_split_name not in raw_datasets_loaded:
-            raise ValueError(f"Train split '{data_args.train_split_name}' not found. Available: {list(raw_datasets_loaded.keys())}")
+            raise ValueError(
+                f"Train split '{data_args.train_split_name}' not found. Available: {list(raw_datasets_loaded.keys())}")
         else:
             train_hf_dataset = raw_datasets_loaded[data_args.train_split_name]
 
@@ -1086,14 +1114,17 @@ def run_training(model_args, data_args, training_args, is_local=False):
                     eval_hf_dataset = raw_datasets_loaded["validation"]
                 elif "test" in raw_datasets_loaded:
                     eval_hf_dataset = raw_datasets_loaded["test"]
-                elif data_args.eval_split_size > 0 and hasattr(train_hf_dataset, "__len__") and len(train_hf_dataset) > 1:
+                elif data_args.eval_split_size > 0 and hasattr(train_hf_dataset, "__len__") and len(
+                        train_hf_dataset) > 1:
                     pbar.set_description("Splitting train dataset for evaluation...")
                     logger.info(f"Splitting train dataset for evaluation with ratio {data_args.eval_split_size}")
-                    split_dataset = train_hf_dataset.train_test_split(test_size=data_args.eval_split_size, seed=training_args.seed)
+                    split_dataset = train_hf_dataset.train_test_split(test_size=data_args.eval_split_size,
+                                                                      seed=training_args.seed)
                     train_hf_dataset, eval_hf_dataset = split_dataset["train"], split_dataset["test"]
                     logger.info(f"Evaluation set size: {len(eval_hf_dataset)}")
                 else:
-                    logger.warning("Evaluation requested but no eval split found/configured or train dataset too small to split. Skipping eval dataset.")
+                    logger.warning(
+                        "Evaluation requested but no eval split found/configured or train dataset too small to split. Skipping eval dataset.")
                 pbar.update(1)
                 pbar.set_description("Evaluation dataset setup completed")
 
@@ -1164,9 +1195,11 @@ def run_training(model_args, data_args, training_args, is_local=False):
 
     # For non-CSV datasets, create SpeechFineTuningDataset
     if not data_args.train_csv:
-        logger.info(f"Training dataset size: {len(train_hf_dataset) if hasattr(train_hf_dataset, '__len__') else 'streaming'}")
+        logger.info(
+            f"Training dataset size: {len(train_hf_dataset) if hasattr(train_hf_dataset, '__len__') else 'streaming'}")
         if eval_hf_dataset:
-            logger.info(f"Evaluation dataset size: {len(eval_hf_dataset) if hasattr(eval_hf_dataset, '__len__') else 'streaming'}")
+            logger.info(
+                f"Evaluation dataset size: {len(eval_hf_dataset) if hasattr(eval_hf_dataset, '__len__') else 'streaming'}")
 
         # Create datasets
         logger.info("Creating training dataset...")
@@ -1298,9 +1331,9 @@ def main():
         if data_args.preprocessing_num_workers is not None:
             training_args.dataloader_num_workers = data_args.preprocessing_num_workers
 
-    # Run training locally (removed Beam remote option)
     print("Running training locally...")
     run_training(model_args, data_args, training_args, is_local=True)
+
 
 if __name__ == "__main__":
     main()

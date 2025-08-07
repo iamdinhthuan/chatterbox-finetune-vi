@@ -4,15 +4,16 @@ Vietnamese TTS Voice Cloning - Gradio Interface
 Complete Gradio interface for Vietnamese TTS with voice cloning capabilities.
 """
 
-import os
 import json
-import torch
-import gradio as gr
 import logging
+import os
 import tempfile
-import torchaudio
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
+import gradio as gr
+import torch
+import torchaudio
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -22,25 +23,26 @@ logger = logging.getLogger(__name__)
 model = None
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+
 def load_vietnamese_model():
     """Load Vietnamese TTS model"""
     global model
-    
+
     if model is not None:
         return model
-    
+
     try:
         from chatterbox.tts import ChatterboxTTS
-        
+
         # Load config
         config_path = "model_path_vietnamese.json"
         with open(config_path, 'r') as f:
             config = json.load(f)
-        
+
         # Use trained model if available
         if os.path.exists("model.safetensors"):
             config["t3_path"] = "model.safetensors"
-        
+
         # Convert to Path objects
         current_dir = Path.cwd()
         voice_encoder_path = current_dir / config["voice_encoder_path"]
@@ -48,7 +50,7 @@ def load_vietnamese_model():
         s3gen_path = current_dir / config["s3gen_path"]
         tokenizer_path = Path(config["tokenizer_path"])
         conds_path = current_dir / config["conds_path"] if config.get("conds_path") else None
-        
+
         # Load model
         model = ChatterboxTTS.from_specified(
             voice_encoder_path=voice_encoder_path,
@@ -58,13 +60,14 @@ def load_vietnamese_model():
             conds_path=conds_path,
             device=device
         )
-        
+
         logger.info("✅ Vietnamese TTS model loaded successfully!")
         return model
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to load model: {e}")
         raise gr.Error(f"Failed to load Vietnamese TTS model: {e}")
+
 
 def synthesize_with_voice_clone(text, reference_audio, exaggeration, temperature, cfg_weight):
     """
@@ -83,18 +86,18 @@ def synthesize_with_voice_clone(text, reference_audio, exaggeration, temperature
     try:
         # Load model if not loaded
         tts_model = load_vietnamese_model()
-        
+
         # Validate inputs
         if not text.strip():
             raise gr.Error("Vui lòng nhập text tiếng Việt!")
-        
+
         if reference_audio is None:
             raise gr.Error("Vui lòng upload file audio tham chiếu!")
-        
+
         # Generate audio with voice cloning
         logger.info(f"🎤 Synthesizing: '{text[:50]}...'")
         logger.info(f"🎵 Using reference audio: {reference_audio}")
-        
+
         audio = tts_model.generate(
             text=text,
             audio_prompt_path=reference_audio,
@@ -102,19 +105,20 @@ def synthesize_with_voice_clone(text, reference_audio, exaggeration, temperature
             temperature=temperature,
             cfg_weight=cfg_weight
         )
-        
+
         # Convert to numpy for Gradio
         if torch.is_tensor(audio):
             audio_np = audio.squeeze(0).cpu().numpy()
         else:
             audio_np = audio
-        
+
         logger.info("✅ Synthesis completed!")
         return (24000, audio_np)  # 24kHz sample rate
-        
+
     except Exception as e:
         logger.error(f"❌ Synthesis failed: {e}")
         raise gr.Error(f"Synthesis failed: {e}")
+
 
 def synthesize_default_voice(text, exaggeration, temperature, cfg_weight):
     """
@@ -123,33 +127,34 @@ def synthesize_default_voice(text, exaggeration, temperature, cfg_weight):
     try:
         # Load model if not loaded
         tts_model = load_vietnamese_model()
-        
+
         # Validate inputs
         if not text.strip():
             raise gr.Error("Vui lòng nhập text tiếng Việt!")
-        
+
         # Generate audio with default voice
         logger.info(f"🎤 Synthesizing with default voice: '{text[:50]}...'")
-        
+
         audio = tts_model.generate(
             text=text,
             exaggeration=exaggeration,
             temperature=temperature,
             cfg_weight=cfg_weight
         )
-        
+
         # Convert to numpy for Gradio
         if torch.is_tensor(audio):
             audio_np = audio.squeeze(0).cpu().numpy()
         else:
             audio_np = audio
-        
+
         logger.info("✅ Synthesis completed!")
         return (24000, audio_np)
-        
+
     except Exception as e:
         logger.error(f"❌ Synthesis failed: {e}")
         raise gr.Error(f"Synthesis failed: {e}")
+
 
 def get_example_texts():
     """Get example Vietnamese texts"""
@@ -163,6 +168,7 @@ def get_example_texts():
         "Tôi có thể nói tiếng Việt rất tự nhiên và trôi chảy.",
         "Hãy thử nghiệm với nhiều câu khác nhau để test chất lượng."
     ]
+
 
 def process_batch_texts(batch_texts, reference_audio, progress=gr.Progress()):
     """
@@ -218,19 +224,19 @@ def process_batch_texts(batch_texts, reference_audio, progress=gr.Progress()):
                         )
 
                     # Save to temporary file
-                    temp_audio_path = os.path.join(temp_dir, f"audio_{i+1:03d}.wav")
+                    temp_audio_path = os.path.join(temp_dir, f"audio_{i + 1:03d}.wav")
                     torchaudio.save(temp_audio_path, audio.cpu(), 24000)
 
                     # Add to zip with descriptive name
                     safe_text = "".join(c for c in text[:30] if c.isalnum() or c in (' ', '-', '_')).strip()
-                    zip_filename = f"{i+1:03d}_{safe_text}.wav"
+                    zip_filename = f"{i + 1:03d}_{safe_text}.wav"
                     zipf.write(temp_audio_path, zip_filename)
 
-                    status_messages.append(f"✅ [{i+1}/{len(texts)}] {text[:50]}...")
+                    status_messages.append(f"✅ [{i + 1}/{len(texts)}] {text[:50]}...")
                     successful += 1
 
                 except Exception as e:
-                    status_messages.append(f"❌ [{i+1}/{len(texts)}] Lỗi: {e}")
+                    status_messages.append(f"❌ [{i + 1}/{len(texts)}] Lỗi: {e}")
 
         # Create status message
         status = f"🎉 Hoàn thành: {successful}/{len(texts)} thành công\n\n" + "\n".join(status_messages)
@@ -241,14 +247,15 @@ def process_batch_texts(batch_texts, reference_audio, progress=gr.Progress()):
         logger.error(f"❌ Batch processing failed: {e}")
         return None, f"❌ Lỗi xử lý batch: {e}"
 
+
 # Create Gradio interface
 def create_interface():
     """Create Gradio interface"""
-    
+
     with gr.Blocks(
-        title="Vietnamese TTS Voice Cloning",
-        theme=gr.themes.Soft(),
-        css="""
+            title="Vietnamese TTS Voice Cloning",
+            theme=gr.themes.Soft(),
+            css="""
         .gradio-container {
             max-width: 1200px !important;
         }
@@ -271,7 +278,7 @@ def create_interface():
         }
         """
     ) as demo:
-        
+
         # Header
         gr.HTML("""
         <div class="main-header">
@@ -283,12 +290,12 @@ def create_interface():
             </p>
         </div>
         """)
-        
+
         with gr.Tabs():
             # Tab 1: Voice Cloning
             with gr.Tab("🎭 Voice Cloning", elem_id="voice-clone-tab"):
                 gr.HTML('<div class="section-header">🎵 Nhân bản giọng nói</div>')
-                
+
                 with gr.Row():
                     with gr.Column(scale=2):
                         text_input = gr.Textbox(
@@ -297,13 +304,13 @@ def create_interface():
                             lines=3,
                             max_lines=5
                         )
-                        
+
                         reference_audio = gr.Audio(
                             label="🎤 Audio tham chiếu (Voice để clone)",
                             type="filepath",
                             format="wav"
                         )
-                        
+
                         with gr.Row():
                             exaggeration_clone = gr.Slider(
                                 minimum=0.0,
@@ -326,19 +333,19 @@ def create_interface():
                                 step=0.1,
                                 label="⚖️ CFG Weight"
                             )
-                        
+
                         clone_btn = gr.Button(
                             "🎵 Tạo giọng nói",
                             variant="primary",
                             size="lg"
                         )
-                    
+
                     with gr.Column(scale=1):
                         clone_output = gr.Audio(
                             label="🔊 Kết quả Voice Cloning",
                             type="numpy"
                         )
-                        
+
                         gr.HTML("""
                         <div style="margin-top: 20px; padding: 15px; background: #f0f8ff; border-radius: 10px;">
                             <h4>💡 Hướng dẫn sử dụng:</h4>
@@ -350,11 +357,11 @@ def create_interface():
                             </ul>
                         </div>
                         """)
-            
+
             # Tab 2: Default Voice
             with gr.Tab("🎤 Giọng mặc định", elem_id="default-voice-tab"):
                 gr.HTML('<div class="section-header">🎤 Giọng nói mặc định</div>')
-                
+
                 with gr.Row():
                     with gr.Column(scale=2):
                         text_input_default = gr.Textbox(
@@ -363,7 +370,7 @@ def create_interface():
                             lines=3,
                             max_lines=5
                         )
-                        
+
                         with gr.Row():
                             exaggeration_default = gr.Slider(
                                 minimum=0.0,
@@ -386,19 +393,19 @@ def create_interface():
                                 step=0.1,
                                 label="⚖️ CFG Weight"
                             )
-                        
+
                         default_btn = gr.Button(
                             "🎤 Tạo giọng nói",
                             variant="primary",
                             size="lg"
                         )
-                    
+
                     with gr.Column(scale=1):
                         default_output = gr.Audio(
                             label="🔊 Kết quả",
                             type="numpy"
                         )
-                
+
                 # Example texts
                 gr.HTML('<div class="section-header">📚 Ví dụ</div>')
                 example_texts = get_example_texts()
@@ -412,9 +419,11 @@ def create_interface():
                                         example_texts[i + j],
                                         size="sm"
                                     )
+
                                     # Use closure to capture the text
                                     def make_click_handler(text):
                                         return lambda: text
+
                                     example_btn.click(
                                         make_click_handler(example_texts[i + j]),
                                         outputs=text_input_default
@@ -456,7 +465,7 @@ def create_interface():
                             interactive=False,
                             lines=5
                         )
-        
+
         # Event handlers
         clone_btn.click(
             fn=synthesize_with_voice_clone,
@@ -475,7 +484,7 @@ def create_interface():
             inputs=[batch_texts, batch_reference],
             outputs=[batch_output, batch_status]
         )
-        
+
         # Footer
         gr.HTML("""
         <div style="text-align: center; margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
@@ -488,13 +497,14 @@ def create_interface():
             </p>
         </div>
         """.format(device=device.upper()))
-    
+
     return demo
+
 
 if __name__ == "__main__":
     # Create and launch interface
     demo = create_interface()
-    
+
     # Launch with custom settings
     demo.launch(
         server_name="0.0.0.0",  # Allow external access
