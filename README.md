@@ -27,8 +27,8 @@ A complete Vietnamese Text-to-Speech system with voice cloning capabilities, bui
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/vietnamese-tts-voice-cloning.git
-cd vietnamese-tts-voice-cloning
+git clone https://github.com/iamdinhthuan/chatterbox-finetune-vi
+cd chatterbox-finetune-vi
 
 # Install dependencies
 pip install -r requirements.txt
@@ -43,8 +43,6 @@ pip install chatterbox-tts
 # Download base ChatterboxTTS models
 python chatterbox/download_hf_repo.py
 
-# Download Vietnamese fine-tuned model (if available)
-# Or train your own following the training guide
 ```
 
 ### 3. Quick Inference
@@ -97,39 +95,6 @@ Open http://localhost:7860 in your browser.
 - [🚀 Production Deployment](docs/DEPLOYMENT.md)
 - [🔬 Research & Development](docs/RESEARCH.md)
 
-## 🏗️ Project Structure
-
-```
-vietnamese-tts-voice-cloning/
-├── 📁 chatterbox/                          # Main source code
-│   ├── 📁 chatterbox/                     # ChatterboxTTS library
-│   ├── 📁 tokenizer_scripts/              # Tokenizer utilities
-│   │   ├── make_new_tokenizer.py         # Create Vietnamese tokenizer
-│   │   ├── merge_tokenizers.py           # Merge tokenizers
-│   │   └── extend_tokenizer_weights.py   # Extend model weights
-│   ├── 📁 src/                           # Training utilities
-│   ├── 🐍 train_vietnamese_csv.py         # Main training script
-│   ├── 🌐 gradio_vietnamese_voice_clone.py # Web interface
-│   ├── 📝 extract_vietnamese_text.py      # Text corpus extraction
-│   ├── ✅ check_dataset.py                # Dataset validation
-│   ├── 🎤 vietnamese_tts_inference.py     # Inference script
-│   └── 🔧 run_vietnamese_setup.py         # Automated setup
-├── 📚 docs/                               # Documentation
-│   ├── QUICK_START.md                    # Quick start guide
-│   ├── TRAINING.md                       # Training guide
-│   ├── VOICE_CLONING.md                  # Voice cloning tutorial
-│   └── WEB_INTERFACE.md                  # Web interface guide
-├── 🎯 examples/                           # Example scripts and data
-│   ├── basic_usage.py                    # Complete usage examples
-│   ├── README.md                         # Examples documentation
-│   └── outputs/                          # Generated audio files
-├── 📋 requirements.txt                    # Python dependencies
-├── ⚙️ setup.py                           # Package setup
-├── 🤝 CONTRIBUTING.md                     # Contribution guidelines
-├── 📄 LICENSE                            # MIT License
-├── 🚫 .gitignore                         # Git ignore rules
-└── 📖 README.md                          # This file
-```
 
 ## 🎯 Training Your Own Model
 
@@ -165,16 +130,16 @@ python chatterbox/tokenizer_scripts/make_new_tokenizer.py \
 
 ```bash
 python chatterbox/tokenizer_scripts/merge_tokenizers.py \
-    --tokenizer_a chatterbox-project/chatterbox_weights/tokenizer.json \
-    --tokenizer_b tokenizer_vietnamese_new.json \
-    --output tokenizer_vi_merged.json
+    chatterbox-project/chatterbox_weights/tokenizer.json \
+     tokenizer_vietnamese_new.json \
+     output tokenizer_vi_merged.json
 ```
 
 ### 5. Extend Model Weights
 
 ```bash
 python chatterbox/tokenizer_scripts/extend_tokenizer_weights.py \
-    --checkpoint_path chatterbox-project/chatterbox_weights/t3_cfg.safetensors \
+     chatterbox-project/chatterbox_weights/t3_cfg.safetensors \
     --output_path t3_cfg_vietnamese.safetensors \
     --new_text_vocab_size 1200
 ```
