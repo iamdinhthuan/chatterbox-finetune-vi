@@ -1,0 +1,37 @@
+# Core dependencies
+torch>=2.0.0
+torchaudio>=2.0.0
+transformers>=4.30.0
+datasets>=2.12.0
+tokenizers>=0.13.0
+safetensors>=0.3.0
+
+# ChatterboxTTS
+chatterbox-tts
+
+# Audio processing
+librosa>=0.10.0
+soundfile>=0.12.0
+
+# Web interface
+gradio>=3.35.0
+
+# Data processing
+pandas>=2.0.0
+numpy>=1.24.0
+tqdm>=4.65.0
+
+# Utilities
+huggingface_hub>=0.15.0
+psutil>=5.9.0
+langdetect>=1.0.9
+
+# Optional: For advanced features
+# pykakasi>=2.2.1  # For Japanese text processing (if needed)
+# tensorboard>=2.13.0  # For training monitoring
+
+# Development dependencies (uncomment for development)
+# pytest>=7.0.0
+# black>=23.0.0
+# flake8>=6.0.0
+# mypy>=1.0.0

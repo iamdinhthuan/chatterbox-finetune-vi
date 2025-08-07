@@ -1,0 +1,7 @@
+{
+  "voice_encoder_path": "chatterbox-project/chatterbox_weights/ve.safetensors",
+  "t3_path": "chatterbox-project/chatterbox_weights/t3_cfg_vietnamese.safetensors",
+  "s3gen_path": "chatterbox-project/chatterbox_weights/s3gen.safetensors",
+  "tokenizer_path": "D:\\train_model\\chatterbox-finetune\\chatterbox\\tokenizer_vi_merged.json",
+  "conds_path": "chatterbox-project/chatterbox_weights/conds.pt"
+}
