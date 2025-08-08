@@ -59,6 +59,8 @@ def main():
                        help="Number of training epochs")
     parser.add_argument("--per_device_train_batch_size", type=int, default=4,
                        help="Training batch size per device")
+    parser.add_argument("--per_device_eval_batch_size", type=int, default=None,
+                       help="Evaluation batch size per device (defaults to same as train batch size)")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=2,
                        help="Gradient accumulation steps")
     parser.add_argument("--learning_rate", type=float, default=5e-5,
@@ -75,6 +77,10 @@ def main():
                        help="Maximum number of checkpoints to keep")
     parser.add_argument("--dataloader_num_workers", type=int, default=4,
                        help="Number of dataloader workers")
+    parser.add_argument("--dataloader_prefetch_factor", type=int, default=8,
+                       help="Number of batches to prefetch per worker")
+    parser.add_argument("--audio_cache_dir", type=str, default=None,
+                       help="Directory to cache preprocessed audio (optional)")
     parser.add_argument("--fp16", action="store_true", default=True,
                        help="Use mixed precision training")
     parser.add_argument("--do_eval", action="store_true", default=True,
@@ -116,6 +122,11 @@ def main():
         logger.info(f"  - Greater is better: {args.greater_is_better}")
         logger.info(f"  - Load best model at end: {args.load_best_model_at_end}")
         logger.info(f"  - Save total limit: {args.save_total_limit}")
+        logger.info(f"  - Train batch size: {args.per_device_train_batch_size}")
+        logger.info(f"  - Dataloader workers: {args.dataloader_num_workers}")
+        logger.info(f"  - Prefetch factor: {args.dataloader_prefetch_factor}")
+        if args.audio_cache_dir:
+            logger.info(f"  - Audio cache: {args.audio_cache_dir}")
     else:
         logger.info("Evaluation disabled - will save latest checkpoints only")
     
@@ -141,10 +152,14 @@ def main():
         ignore_verifications=True
     )
     
+    # Set eval batch size to same as train batch size if not specified
+    eval_batch_size = args.per_device_eval_batch_size if args.per_device_eval_batch_size is not None else args.per_device_train_batch_size
+
     training_args = CustomTrainingArguments(
         output_dir=args.output_dir,
         num_train_epochs=args.num_train_epochs,
         per_device_train_batch_size=args.per_device_train_batch_size,
+        per_device_eval_batch_size=eval_batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         learning_rate=args.learning_rate,
         warmup_steps=args.warmup_steps,
@@ -167,7 +182,7 @@ def main():
         eval_on_start=False,
         use_torch_profiler=False,
         dataloader_persistent_workers=args.dataloader_num_workers > 0,  # Only when multiprocessing
-        dataloader_prefetch_factor=2 if args.dataloader_num_workers > 0 else None,  # Only when multiprocessing
+        dataloader_prefetch_factor=args.dataloader_prefetch_factor if args.dataloader_num_workers > 0 else None,  # Only when multiprocessing
         remove_unused_columns=False,  # Important for custom datasets
         label_names=["text_tokens", "speech_tokens"]  # Specify label names
     )

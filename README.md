@@ -81,21 +81,6 @@ python gradio_vietnamese_voice_clone.py
 
 Open http://localhost:7860 in your browser.
 
-## 📚 Documentation
-
-### Core Guides
-- [🏃 Quick Start Guide](docs/QUICK_START.md)
-- [🎭 Voice Cloning Tutorial](docs/VOICE_CLONING.md)
-- [🔧 Training Guide](docs/TRAINING.md)
-- [🌐 Web Interface Guide](docs/WEB_INTERFACE.md)
-
-### Advanced
-- [📊 Dataset Preparation](docs/DATASET.md)
-- [⚙️ Model Configuration](docs/CONFIG.md)
-- [🚀 Production Deployment](docs/DEPLOYMENT.md)
-- [🔬 Research & Development](docs/RESEARCH.md)
-
-
 ## 🎯 Training Your Own Model
 
 ### 1. Prepare Dataset
@@ -156,23 +141,7 @@ python chatterbox/train_vietnamese_csv.py \
     --per_device_train_batch_size 4
 ```
 
-## 🎭 Voice Cloning Usage
 
-### Python API
-
-```python
-# Load model
-model = load_vietnamese_model()
-
-# Clone voice with reference audio
-audio = model.generate(
-    text="Đây là giọng nói được nhân bản",
-    audio_prompt_path="reference_voice.wav",
-    exaggeration=0.5,
-    temperature=0.8,
-    cfg_weight=0.5
-)
-```
 
 ### Web Interface
 
@@ -195,34 +164,15 @@ audio = model.generate(
 ## 🔧 Requirements
 
 ### Hardware
-- **GPU**: NVIDIA GPU with 8GB+ VRAM (RTX 3070/4060+)
+- **GPU**: NVIDIA GPU with 16GB+ VRAM (RTX 3090/4060ti+)
 - **RAM**: 16GB+ system RAM
 - **Storage**: 50GB+ free space
 
 ### Software
 - **Python**: 3.10+
-- **CUDA**: 11.8+ or 12.x
-- **PyTorch**: 2.0+
+- **CUDA**: 11.8+
 
-## 🤝 Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Development Setup
-
-```bash
-# Clone repo
-git clone https://github.com/yourusername/vietnamese-tts-voice-cloning.git
-cd vietnamese-tts-voice-cloning
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install in development mode
-pip install -e .
-pip install -r requirements-dev.txt
-```
 
 ## 📄 License
 
@@ -230,23 +180,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- [ChatterboxTTS](https://github.com/chatterbox-ai/chatterbox) - Base TTS model
+- [ChatterboxTTS](https://github.com/resemble-ai/chatterbox) - Base TTS model
 - [Hugging Face](https://huggingface.co/) - Model hosting and tools
 - [Gradio](https://gradio.app/) - Web interface framework
 
 ## 📞 Support
 
-- 📧 Email: your.email@example.com
-- 💬 Discord: [Join our community](https://discord.gg/your-invite)
-- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/vietnamese-tts-voice-cloning/issues)
+- 📧 Email: dinhthuan02022001@gmail.com
+- 🐛 Issues: [GitHub Issues](https://github.com/iamdinhthuan/chatterbox-finetune-vi/issues)
 
-## 🔗 Links
 
-- [Demo Website](https://your-demo-site.com)
-- [Paper/Research](https://arxiv.org/abs/your-paper)
-- [Model Weights](https://huggingface.co/your-username/vietnamese-tts)
-
----
 
 <div align="center">
   <strong>Made with ❤️ for the Vietnamese AI community</strong>
