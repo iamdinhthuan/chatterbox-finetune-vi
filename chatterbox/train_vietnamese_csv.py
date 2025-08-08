@@ -157,12 +157,17 @@ def main():
         assume_language=args.assume_language,
         min_duration_s=args.min_duration_s,
         max_duration_s=args.max_duration_s,
+        audio_cache_dir=args.audio_cache_dir,
         preprocessing_num_workers=args.dataloader_num_workers,
         ignore_verifications=True
     )
     
-    # Set eval batch size to same as train batch size if not specified
-    eval_batch_size = args.per_device_eval_batch_size if args.per_device_eval_batch_size is not None else args.per_device_train_batch_size
+    # Set eval batch size to half of train batch size if not specified (minimum 1)
+    eval_batch_size = (
+        args.per_device_eval_batch_size
+        if args.per_device_eval_batch_size is not None
+        else max(1, args.per_device_train_batch_size // 2)
+    )
 
     training_args = CustomTrainingArguments(
         output_dir=args.output_dir,

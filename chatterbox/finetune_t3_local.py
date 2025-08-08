@@ -4,6 +4,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field
+import hashlib
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
@@ -233,6 +234,10 @@ class DataArguments:
     assume_language: Optional[str] = field(
         default=None,
         metadata={"help": "Assume a fixed language code (e.g., 'vi', 'fr', 'de') to bypass runtime language detection."}
+    )
+    audio_cache_dir: Optional[str] = field(
+        default=None,
+        metadata={"help": "Directory to cache 16k wav, VE embeddings, S3 tokens, and cond prompt tokens."}
     )
     eval_split_size: float = field(
         default=0.0005, metadata={
@@ -626,6 +631,15 @@ class CSVSpeechDataset(Dataset):
         self.s3_sr = S3_SR
         self.enc_cond_audio_len_samples = int(data_args.audio_prompt_duration_s * self.s3_sr)
 
+        # Runtime cache
+        self.cache_dir: Optional[Path] = None
+        if self.data_args.audio_cache_dir:
+            self.cache_dir = Path(self.data_args.audio_cache_dir)
+            (self.cache_dir / 'wav16k').mkdir(parents=True, exist_ok=True)
+            (self.cache_dir / 've').mkdir(parents=True, exist_ok=True)
+            (self.cache_dir / 's3tok').mkdir(parents=True, exist_ok=True)
+            (self.cache_dir / 'condtok').mkdir(parents=True, exist_ok=True)
+
         # Initialize model in main process
         self._init_model()
 
@@ -640,15 +654,25 @@ class CSVSpeechDataset(Dataset):
         audio_path = row['audio']
         text = row['transcript']
 
-        # Load audio (torchaudio, no resample if already 16 kHz)
+        # Load audio (torchaudio, cache, resample only if needed)
         try:
-            wav, sr = torchaudio.load(audio_path)
-            # mixdown to mono if needed
-            if wav.size(0) > 1:
-                wav = wav.mean(dim=0, keepdim=True)
-            if sr != self.s3_sr:
-                wav = AF.resample(wav, sr, self.s3_sr)
-            wav_16k = wav.squeeze(0).cpu().numpy().astype(np.float32)
+            cache_key = hashlib.sha1(audio_path.encode('utf-8')).hexdigest() if self.cache_dir else None
+            wav_cache = (self.cache_dir / 'wav16k' / f"{cache_key}.npy") if cache_key else None
+            wav_16k = None
+            if wav_cache and wav_cache.exists():
+                wav_16k = np.load(wav_cache)
+            else:
+                wav, sr = torchaudio.load(audio_path)
+                if wav.size(0) > 1:
+                    wav = wav.mean(dim=0, keepdim=True)
+                if sr != self.s3_sr:
+                    wav = AF.resample(wav, sr, self.s3_sr)
+                wav_16k = wav.squeeze(0).cpu().numpy().astype(np.float32)
+                if wav_cache:
+                    try:
+                        np.save(wav_cache, wav_16k)
+                    except Exception:
+                        pass
             if len(wav_16k) == 0:
                 logger.warning(f"Empty audio file: {audio_path}")
                 return None
@@ -661,11 +685,24 @@ class CSVSpeechDataset(Dataset):
             logger.error(f"Error loading audio {audio_path}: {e}")
             return None
 
-        # Get speaker embedding
+        # Get speaker embedding (cache)
         try:
             self._init_model()
-            speaker_emb_np = self.voice_encoder.embeds_from_wavs([wav_16k], sample_rate=self.s3_sr)
-            speaker_emb = torch.from_numpy(speaker_emb_np[0])
+            speaker_emb = None
+            spk_cache = None
+            if self.cache_dir:
+                cache_key = hashlib.sha1(audio_path.encode('utf-8')).hexdigest()
+                spk_cache = self.cache_dir / 've' / f"{cache_key}.npy"
+                if spk_cache.exists():
+                    speaker_emb = torch.from_numpy(np.load(spk_cache))
+            if speaker_emb is None:
+                speaker_emb_np = self.voice_encoder.embeds_from_wavs([wav_16k], sample_rate=self.s3_sr)
+                speaker_emb = torch.from_numpy(speaker_emb_np[0])
+                if spk_cache:
+                    try:
+                        np.save(spk_cache, speaker_emb.numpy())
+                    except Exception:
+                        pass
         except Exception as e:
             logger.error(f"Error getting speaker embedding for {audio_path}: {e}")
             return None
@@ -688,14 +725,28 @@ class CSVSpeechDataset(Dataset):
             logger.error(f"Error tokenizing text '{text[:50]}...': {e}")
             return None
 
-        # Tokenize speech
+        # Tokenize speech (cache)
         try:
             self._init_model()
-            raw_speech_tokens_batch, speech_token_lengths_batch = self.speech_tokenizer.forward([wav_16k])
-            if raw_speech_tokens_batch is None or speech_token_lengths_batch is None:
-                logger.error(f"S3Tokenizer returned None for {audio_path}")
-                return None
-            raw_speech_tokens = raw_speech_tokens_batch.squeeze(0)[:speech_token_lengths_batch.squeeze(0).item()]
+            raw_speech_tokens = None
+            s3_cache = None
+            if self.cache_dir:
+                cache_key = hashlib.sha1(audio_path.encode('utf-8')).hexdigest()
+                s3_cache = self.cache_dir / 's3tok' / f"{cache_key}.npz"
+                if s3_cache.exists():
+                    data = np.load(s3_cache)
+                    raw_speech_tokens = torch.from_numpy(data['tokens'])
+            if raw_speech_tokens is None:
+                raw_speech_tokens_batch, speech_token_lengths_batch = self.speech_tokenizer.forward([wav_16k])
+                if raw_speech_tokens_batch is None or speech_token_lengths_batch is None:
+                    logger.error(f"S3Tokenizer returned None for {audio_path}")
+                    return None
+                raw_speech_tokens = raw_speech_tokens_batch.squeeze(0)[:speech_token_lengths_batch.squeeze(0).item()]
+                if s3_cache:
+                    try:
+                        np.savez_compressed(s3_cache, tokens=raw_speech_tokens.numpy())
+                    except Exception:
+                        pass
         except Exception as e:
             logger.error(f"Error getting speech tokens for {audio_path}: {e}")
             return None
@@ -714,14 +765,28 @@ class CSVSpeechDataset(Dataset):
             cond_prompt_speech_tokens = torch.zeros(self.chatterbox_t3_config.speech_cond_prompt_len, dtype=torch.long)
         else:
             try:
-                cond_prompt_tokens_batch, _ = self.speech_tokenizer.forward([cond_audio_segment],
-                                                                            max_len=self.chatterbox_t3_config.speech_cond_prompt_len)
-                if cond_prompt_tokens_batch is None:
-                    cond_prompt_speech_tokens = torch.zeros(self.chatterbox_t3_config.speech_cond_prompt_len,
-                                                            dtype=torch.long)
-                else:
-                    cond_prompt_speech_tokens = cond_prompt_tokens_batch.squeeze(0)
-            except Exception as e:
+                cond_prompt_speech_tokens = None
+                cond_cache = None
+                if self.cache_dir:
+                    cache_key = hashlib.sha1((audio_path + f"_{self.chatterbox_t3_config.speech_cond_prompt_len}").encode('utf-8')).hexdigest()
+                    cond_cache = self.cache_dir / 'condtok' / f"{cache_key}.npy"
+                    if cond_cache.exists():
+                        cond_prompt_speech_tokens = torch.from_numpy(np.load(cond_cache))
+                if cond_prompt_speech_tokens is None:
+                    cond_prompt_tokens_batch, _ = self.speech_tokenizer.forward(
+                        [cond_audio_segment], max_len=self.chatterbox_t3_config.speech_cond_prompt_len
+                    )
+                    if cond_prompt_tokens_batch is None:
+                        cond_prompt_speech_tokens = torch.zeros(self.chatterbox_t3_config.speech_cond_prompt_len,
+                                                                dtype=torch.long)
+                    else:
+                        cond_prompt_speech_tokens = cond_prompt_tokens_batch.squeeze(0)
+                        if cond_cache:
+                            try:
+                                np.save(cond_cache, cond_prompt_speech_tokens.numpy())
+                            except Exception:
+                                pass
+            except Exception:
                 cond_prompt_speech_tokens = torch.zeros(self.chatterbox_t3_config.speech_cond_prompt_len,
                                                         dtype=torch.long)
 

@@ -128,13 +128,25 @@ python chatterbox/tokenizer_scripts/extend_tokenizer_weights.py \
 ### 6. Start Training
 
 ```bash
+# Recommended env for better dataloader performance
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export TOKENIZERS_PARALLELISM=false
+
 python chatterbox/train_vietnamese_csv.py \
     --model_config model_path_vietnamese.json \
     --train_csv train.csv \
     --val_csv val.csv \
     --output_dir checkpoints/vietnamese_tts \
     --num_train_epochs 3 \
-    --per_device_train_batch_size 4
+    --per_device_train_batch_size 4 \
+    --dataloader_num_workers 8 \
+    --dataloader_prefetch_factor 4 \
+    --dataloader_pin_memory True \
+    --assume_language vi \
+    --min_duration_s 1 \
+    --max_duration_s 14 \
+    --audio_cache_dir /path/to/cache
 ```
 
 
