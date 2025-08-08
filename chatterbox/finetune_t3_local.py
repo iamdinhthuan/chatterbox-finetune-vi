@@ -9,10 +9,13 @@ from typing import Dict, List, Optional, Union
 
 import datasets
 import librosa
+import soundfile as sf
+import torchaudio
+import torchaudio.functional as AF
 import numpy as np
 import pandas as pd
 import psutil
-import pykakasi
+# pykakasi and langdetect are not needed for Vietnamese-only training
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -20,7 +23,6 @@ import webdataset as wds
 import yaml
 from datasets import load_dataset, DatasetDict, VerificationMode, Audio, logging as ds_logging, DownloadConfig
 from huggingface_hub import snapshot_download
-from langdetect import detect
 from torch.utils.data import Dataset, IterableDataset
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
@@ -220,6 +222,18 @@ class DataArguments:
         default=3.0,
         metadata={"help": "Duration of audio (from start) to use for T3 conditioning prompt tokens (in seconds)."}
     )
+    min_duration_s: Optional[float] = field(
+        default=None,
+        metadata={"help": "Minimum audio duration (in seconds) to include in training/eval."}
+    )
+    max_duration_s: Optional[float] = field(
+        default=None,
+        metadata={"help": "Maximum audio duration (in seconds) to include in training/eval."}
+    )
+    assume_language: Optional[str] = field(
+        default=None,
+        metadata={"help": "Assume a fixed language code (e.g., 'vi', 'fr', 'de') to bypass runtime language detection."}
+    )
     eval_split_size: float = field(
         default=0.0005, metadata={
             "help": "Fraction of data to use for evaluation if splitting manually. Not used if dataset_name provides eval split."}
@@ -400,19 +414,8 @@ class SpeechFineTuningDataset(Dataset):
             return None
 
         normalized_text = punc_norm(text)
-        lang = detect(normalized_text)
-        if lang == "ja":
-            pka_converter = pykakasi.kakasi()
-            pka_converter.setMode("J", "H")  # Kanji to Hiragana
-            pka_converter.setMode("K", "H")  # Katakana to Hiragana
-            pka_converter.setMode("H", "H")  # Hiragana stays Hiragana
-            conv = pka_converter.getConverter()
-            normalized_text = conv.do(normalized_text)
-        elif lang == "fr":
-            normalized_text = "[fr] " + normalized_text
-        elif lang == "de":
-            normalized_text = "[de] " + normalized_text
-        logger.info(f"Normalized text: {normalized_text}")
+        # Vietnamese-only training: skip language detection and extra tagging
+        
         raw_text_tokens = self.text_tokenizer.text_to_tokens(normalized_text).squeeze(0)
         text_tokens = F.pad(raw_text_tokens, (1, 0), value=self.chatterbox_t3_config.start_text_token)
         text_tokens = F.pad(text_tokens, (0, 1), value=self.chatterbox_t3_config.stop_text_token)
@@ -582,6 +585,32 @@ class CSVSpeechDataset(Dataset):
         initial_count = len(self.df)
         self.df = self.df.dropna(subset=['audio', 'transcript'])
         self.df = self.df[self.df['transcript'].str.strip() != '']
+        # Duration filter (optional)
+        if self.data_args.min_duration_s is not None or self.data_args.max_duration_s is not None:
+            def _get_duration_seconds(path: str) -> float:
+                try:
+                    info = sf.info(path)
+                    if info and info.frames and info.samplerate:
+                        return float(info.frames) / float(info.samplerate)
+                except Exception:
+                    pass
+                try:
+                    return float(librosa.get_duration(path=path))
+                except Exception:
+                    return -1.0
+
+            durations = self.df['audio'].apply(_get_duration_seconds)
+            mask = durations >= -0.5
+            if self.data_args.min_duration_s is not None:
+                mask &= durations >= float(self.data_args.min_duration_s)
+            if self.data_args.max_duration_s is not None:
+                mask &= durations <= float(self.data_args.max_duration_s)
+            removed = int((~mask).sum())
+            if removed > 0:
+                logger.info(f"Filtered out {removed} rows outside duration bounds (min={self.data_args.min_duration_s}, max={self.data_args.max_duration_s}).")
+            self.df = self.df[mask]
+            self.df = self.df.reset_index(drop=True)
+
         final_count = len(self.df)
 
         if final_count < initial_count:
@@ -611,11 +640,22 @@ class CSVSpeechDataset(Dataset):
         audio_path = row['audio']
         text = row['transcript']
 
-        # Load audio
+        # Load audio (torchaudio, no resample if already 16 kHz)
         try:
-            wav_16k, _ = librosa.load(audio_path, sr=self.s3_sr, mono=True)
+            wav, sr = torchaudio.load(audio_path)
+            # mixdown to mono if needed
+            if wav.size(0) > 1:
+                wav = wav.mean(dim=0, keepdim=True)
+            if sr != self.s3_sr:
+                wav = AF.resample(wav, sr, self.s3_sr)
+            wav_16k = wav.squeeze(0).cpu().numpy().astype(np.float32)
             if len(wav_16k) == 0:
                 logger.warning(f"Empty audio file: {audio_path}")
+                return None
+            # Duration guard
+            dur_s = len(wav_16k) / float(self.s3_sr)
+            if (self.data_args.min_duration_s is not None and dur_s < float(self.data_args.min_duration_s)) or \
+               (self.data_args.max_duration_s is not None and dur_s > float(self.data_args.max_duration_s)):
                 return None
         except Exception as e:
             logger.error(f"Error loading audio {audio_path}: {e}")
@@ -630,28 +670,8 @@ class CSVSpeechDataset(Dataset):
             logger.error(f"Error getting speaker embedding for {audio_path}: {e}")
             return None
 
-        # Process text
+        # Process text (Vietnamese-only)
         normalized_text = punc_norm(text)
-
-        # Language detection and processing
-        try:
-            lang = detect(normalized_text)
-            if lang == "ja":
-                pka_converter = pykakasi.kakasi()
-                pka_converter.setMode("J", "H")  # Kanji to Hiragana
-                pka_converter.setMode("K", "H")  # Katakana to Hiragana
-                pka_converter.setMode("H", "H")  # Hiragana stays Hiragana
-                conv = pka_converter.getConverter()
-                normalized_text = conv.do(normalized_text)
-            elif lang == "fr":
-                normalized_text = "[fr] " + normalized_text
-            elif lang == "de":
-                normalized_text = "[de] " + normalized_text
-            elif lang == "vi":
-                # Vietnamese text - no special processing needed
-                pass
-        except Exception as e:
-            logger.warning(f"Language detection failed for text '{text[:50]}...': {e}. Using as-is.")
 
         # Tokenize text
         try:
@@ -823,17 +843,6 @@ class DetailedProgressCallback(TrainerCallback):
 
             # Memory usage
             memory_info = psutil.Process().memory_info()
-            memory_mb = memory_info.rss / 1024 / 1024
-
-            # GPU memory if available
-            gpu_memory_str = ""
-            if torch.cuda.is_available():
-                gpu_memory_mb = torch.cuda.memory_allocated() / 1024 / 1024
-                gpu_memory_str = f", GPU_memory={gpu_memory_mb:.1f}MB"
-
-            logger.info(f"Training step {state.global_step}/{args.max_steps if args.max_steps > 0 else 'unknown'}: "
-                        f"avg_step_time={avg_step_time:.3f}s, samples_processed={self.samples_processed}, "
-                        f"samples/sec={samples_per_sec:.2f}, memory={memory_mb:.1f}MB{gpu_memory_str}")
 
             self.last_log_time = current_time
 
@@ -1240,10 +1249,25 @@ def run_training(model_args, data_args, training_args, is_local=False):
     # Wrap T3 model for HuggingFace Trainer compatibility
     wrapped_model = ChatterboxT3Wrapper(t3_model)
 
-    # Reduce dataloader workers for compatibility and fix prefetch_factor issue
-    training_args.dataloader_num_workers = 4  # Use single process to avoid pickle issues
-    training_args.dataloader_prefetch_factor = True  # Must be None when num_workers=0
-    training_args.dataloader_persistent_workers = True  # Must be False when num_workers=0
+    # Ensure dataloader settings are valid and respect CLI
+    # - prefetch_factor must be an int when num_workers > 0, else None
+    # - persistent_workers only makes sense when num_workers > 0
+    if getattr(training_args, "dataloader_num_workers", None) is None:
+        # Default to a conservative value on Windows
+        try:
+            cpu_cnt = os.cpu_count() or 4
+        except Exception:
+            cpu_cnt = 4
+        training_args.dataloader_num_workers = min(4, max(2, cpu_cnt // 4))
+
+    if training_args.dataloader_num_workers and training_args.dataloader_num_workers > 0:
+        # If user didn't pass a value, set a sane default
+        if getattr(training_args, "dataloader_prefetch_factor", None) in (None, True, False):
+            training_args.dataloader_prefetch_factor = 2
+        training_args.dataloader_persistent_workers = True
+    else:
+        training_args.dataloader_prefetch_factor = None
+        training_args.dataloader_persistent_workers = False
 
     trainer = Trainer(
         model=wrapped_model,
@@ -1304,7 +1328,7 @@ def main():
             warmup_steps=500,
             logging_steps=50,
             eval_strategy="steps",
-            eval_steps=1000,
+            eval_steps=2000,
             save_strategy="steps",
             save_steps=2000,
             save_total_limit=3,
@@ -1317,7 +1341,7 @@ def main():
             eval_on_start=False,
             use_torch_profiler=False,
             dataloader_persistent_workers=True,
-            dataloader_prefetch_factor=2
+            dataloader_prefetch_factor=8
         )
 
         # Use preprocessing_num_workers as dataloader_num_workers if set

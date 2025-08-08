@@ -27,7 +27,7 @@ wavs/audio_003.wav,Tôi rất vui được gặp các bạn
 ### 2. Audio Requirements
 
 - **Format**: WAV (preferred), MP3, FLAC
-- **Sample Rate**: 16kHz+ (24kHz recommended)
+- **Sample Rate**: 16kHz
 - **Channels**: Mono
 - **Duration**: 1-10 seconds per clip
 - **Quality**: Clear speech, minimal background noise
@@ -44,8 +44,8 @@ wavs/audio_003.wav,Tôi rất vui được gặp các bạn
 
 ```
 your-dataset/
-├── train.csv          # 80% of data
-├── val.csv            # 20% of data
+├── train.csv          # 90% of data
+├── val.csv            # 10% of data
 └── wavs/              # Audio files
     ├── audio_001.wav
     ├── audio_002.wav

@@ -3,21 +3,26 @@ import json
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Union, Any
+import logging
 
 from .t3data_arguments import DataArguments
 
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
-import librosa
+import torchaudio
+import torchaudio.functional as AF
 import numpy as np
 
 
 from chatterbox.tts import ChatterboxTTS, Conditionals, punc_norm, REPO_ID
 from chatterbox.models.t3.t3 import T3, T3Cond
 from chatterbox.models.t3.modules.t3_config import T3Config
-from chatterbox.models.s3tokenizer import S3_SR, SPEECH_VOCAB_SIZE
+from chatterbox.models.s3tokenizer import S3_SR, SPEECH_VOCAB_SIZE, S3Tokenizer
 from chatterbox.models.s3gen import S3GEN_SR
+
+
+logger = logging.getLogger(__name__)
 
 
 class SpeechFineTuningDataset(Dataset):
@@ -25,7 +30,7 @@ class SpeechFineTuningDataset(Dataset):
                  data_args: DataArguments,
                  chatterbox_model: ChatterboxTTS,
                  t3_config: T3Config,
-                 hf_dataset: Union[datasets.Dataset, List[Dict[str, str]]],
+                 hf_dataset: Union[Any, List[Dict[str, str]]],
                  is_hf_format: bool):
         self.data_args = data_args
         self.chatterbox_model = chatterbox_model
@@ -50,10 +55,19 @@ class SpeechFineTuningDataset(Dataset):
             audio_data = item[self.data_args.audio_column_name]
             
             if isinstance(audio_data, str):
-                 wav_array, original_sr = librosa.load(audio_data, sr=None, mono=True)
+                 wav_tensor, original_sr = torchaudio.load(audio_data)
+                 if wav_tensor.size(0) > 1:
+                     wav_tensor = wav_tensor.mean(dim=0, keepdim=True)
+                 if original_sr != self.s3_sr:
+                     wav_tensor = AF.resample(wav_tensor, original_sr, self.s3_sr)
+                 wav_array = wav_tensor.squeeze(0).cpu().numpy().astype(np.float32)
             elif isinstance(audio_data, dict) and "array" in audio_data and "sampling_rate" in audio_data:
                 wav_array = audio_data["array"]
                 original_sr = audio_data["sampling_rate"]
+                if original_sr != self.s3_sr:
+                    wav_tensor = torchaudio.tensor_to_audio_tensor(np.asarray(wav_array)).unsqueeze(0)
+                    wav_tensor = AF.resample(wav_tensor, original_sr, self.s3_sr)
+                    wav_array = wav_tensor.squeeze(0).cpu().numpy().astype(np.float32)
             else:
                 logger.error(f"Unexpected audio data format for item {idx}: {type(audio_data)}. Skipping.")
                 return None, None
@@ -62,12 +76,9 @@ class SpeechFineTuningDataset(Dataset):
                 logger.error(f"Audio array is not numpy for item {idx}: {type(wav_array)}. Skipping.")
                 return None, None
 
-            if original_sr != self.s3_sr:
-                wav_16k = librosa.resample(wav_array, orig_sr=original_sr, target_sr=self.s3_sr)
-            else:
-                wav_16k = wav_array.copy()
-            
-            if wav_16k.ndim > 1: wav_16k = librosa.to_mono(wav_16k)
+            wav_16k = wav_array.copy()
+            if wav_16k.ndim > 1:
+                wav_16k = wav_16k.mean(axis=0)
             if wav_16k.dtype != np.float32:
                 wav_16k = wav_16k.astype(np.float32)
 
@@ -79,7 +90,12 @@ class SpeechFineTuningDataset(Dataset):
             audio_path = item["audio"]
             text = item["text"]
             try:
-                wav_16k, _ = librosa.load(audio_path, sr=self.s3_sr, mono=True)
+                wav, sr = torchaudio.load(audio_path)
+                if wav.size(0) > 1:
+                    wav = wav.mean(dim=0, keepdim=True)
+                if sr != self.s3_sr:
+                    wav = AF.resample(wav, sr, self.s3_sr)
+                wav_16k = wav.squeeze(0).cpu().numpy().astype(np.float32)
                 return wav_16k, text
             except Exception as e:
                 logger.error(f"Error loading audio {audio_path}: {e}")

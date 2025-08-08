@@ -1,4 +1,4 @@
-# 🇻🇳 Vietnamese TTS with Voice Cloning
+#  Vietnamese TTS with Voice Cloning
 
 A complete Vietnamese Text-to-Speech system with voice cloning capabilities, built on top of ChatterboxTTS.
 
@@ -15,11 +15,7 @@ A complete Vietnamese Text-to-Speech system with voice cloning capabilities, bui
 - 🔧 **Fine-tuning**: Complete pipeline for training on custom Vietnamese datasets
 - 🚀 **Production Ready**: Optimized for both research and production use
 
-## 🎬 Demo
 
-![Vietnamese TTS Demo](docs/images/demo.gif)
-
-*Voice cloning demo with Vietnamese text synthesis*
 
 ## 🚀 Quick Start
 

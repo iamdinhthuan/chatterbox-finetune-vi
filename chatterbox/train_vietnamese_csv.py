@@ -51,6 +51,12 @@ def main():
                        help="Maximum speech token length")
     parser.add_argument("--audio_prompt_duration_s", type=float, default=3.0,
                        help="Audio prompt duration in seconds")
+    parser.add_argument("--assume_language", type=str, default="vi",
+                       help="Assume fixed language (e.g., vi, fr, de). Skips runtime language detection.")
+    parser.add_argument("--min_duration_s", type=float, default=1.0,
+                       help="Minimum audio duration (seconds) to include")
+    parser.add_argument("--max_duration_s", type=float, default=14.0,
+                       help="Maximum audio duration (seconds) to include")
     
     # Training arguments
     parser.add_argument("--output_dir", type=str, default="checkpoints/vietnamese_tts",
@@ -148,6 +154,9 @@ def main():
         max_text_len=args.max_text_len,
         max_speech_len=args.max_speech_len,
         audio_prompt_duration_s=args.audio_prompt_duration_s,
+        assume_language=args.assume_language,
+        min_duration_s=args.min_duration_s,
+        max_duration_s=args.max_duration_s,
         preprocessing_num_workers=args.dataloader_num_workers,
         ignore_verifications=True
     )
@@ -186,6 +195,22 @@ def main():
         remove_unused_columns=False,  # Important for custom datasets
         label_names=["text_tokens", "speech_tokens"]  # Specify label names
     )
+
+    # Normalize dataloader settings to avoid invalid combinations
+    if getattr(training_args, "dataloader_num_workers", None) is None:
+        try:
+            cpu_cnt = os.cpu_count() or 4
+        except Exception:
+            cpu_cnt = 4
+        training_args.dataloader_num_workers = min(4, max(2, cpu_cnt // 4))
+
+    if training_args.dataloader_num_workers and training_args.dataloader_num_workers > 0:
+        if getattr(training_args, "dataloader_prefetch_factor", None) in (None, True, False):
+            training_args.dataloader_prefetch_factor = 2
+        training_args.dataloader_persistent_workers = True
+    else:
+        training_args.dataloader_prefetch_factor = None
+        training_args.dataloader_persistent_workers = False
     
     try:
         # Run training

@@ -12,4 +12,4 @@ def download_hf_repo():
 
 
 if __name__ == "__main__":
-    download_hf_repo.local()
+    download_hf_repo()
