@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="7dc14937-fd67-4252-aa56-b383cdd7530f" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/CLAUDE.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/LICENSE" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/chatterbox_thai.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/example_for_mac.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/example_tts.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/example_vc.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/finetune_t3_jp_beam.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradio_local.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradio_tts_app.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradio_vc_app.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/finetune_t3_thai.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/finetune_t3_thai.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test_thai_simple.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test_thai_tts.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test_thai_tts_debug.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test_thai_tts_improved.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test_thai_tts_vc.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/thai_text_utils.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/voice_conversion.py" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4
+}</component>
+  <component name="ProjectId" id="33fvsL99caPLOSE23drwQa4TFjS" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="1" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/TTS/chatterbox-finetuning&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="D:\TTS\chatterbox-finetuning" />
+    </key>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-b598e85cdad2-JavaScript-PY-252.25557.130" />
+        <option value="bundled-python-sdk-1bde30d8e611-7b97d883f26b-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-252.25557.130" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="7dc14937-fd67-4252-aa56-b383cdd7530f" name="Changes" comment="" />
+      <created>1759721147067</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1759721147067</updated>
+      <workItem from="1759721148521" duration="135000" />
+      <workItem from="1759721304074" duration="10244000" />
+      <workItem from="1759755198182" duration="2002000" />
+      <workItem from="1759757555738" duration="1906000" />
+      <workItem from="1759768900111" duration="2397000" />
+      <workItem from="1759939534810" duration="6635000" />
+      <workItem from="1759977320953" duration="100000" />
+      <workItem from="1759977517077" duration="1624000" />
+      <workItem from="1759979242125" duration="140000" />
+      <workItem from="1759981080992" duration="41000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>
