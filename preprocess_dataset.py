@@ -161,17 +161,50 @@ def main():
     # Load model components
     logger.info("\nLoading model components...")
     try:
-        # Load ChatterboxTTS to get tokenizer, VE, speech tokenizer
         device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"Using device: {device}")
         
-        tts = ChatterboxTTS.from_pretrained(
-            "tel4vn/chatterxbox",
-            cache_dir="./cache",
-            device=device
-        )
+        # Download model from HF Hub first
+        from huggingface_hub import hf_hub_download
+        import os
         
-        # Replace tokenizer if custom
+        model_dir = Path("./cache/chatterbox_model")
+        model_dir.mkdir(parents=True, exist_ok=True)
+        
+        repo_id = "tel4vn/chatterxbox"
+        files_to_download = ["ve.safetensors", "s3gen.safetensors", "t3_cfg.safetensors"]
+        
+        logger.info(f"Downloading model from {repo_id}...")
+        for file in files_to_download:
+            if not (model_dir / file).exists():
+                hf_hub_download(
+                    repo_id=repo_id,
+                    filename=file,
+                    local_dir=model_dir,
+                    local_dir_use_symlinks=False
+                )
+        
+        # Try to download conds.pt
+        try:
+            if not (model_dir / "conds.pt").exists():
+                hf_hub_download(
+                    repo_id=repo_id,
+                    filename="conds.pt",
+                    local_dir=model_dir,
+                    local_dir_use_symlinks=False
+                )
+        except:
+            logger.info("conds.pt not found (optional)")
+        
+        # Copy custom tokenizer
+        import shutil
+        shutil.copy(tokenizer_path, model_dir / "tokenizer.json")
+        
+        # Load model with from_local
+        logger.info("Loading model components...")
+        tts = ChatterboxTTS.from_local(ckpt_dir=str(model_dir), device=device)
+        
+        # Get components
         from tokenizers import Tokenizer
         text_tokenizer = Tokenizer.from_file(str(tokenizer_path))
         
@@ -183,6 +216,8 @@ def main():
         
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
+        import traceback
+        traceback.print_exc()
         return
     
     # Load metadata
