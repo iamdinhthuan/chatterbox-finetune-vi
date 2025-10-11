@@ -156,8 +156,15 @@ def test_oov_with_metadata(csv_path, tokenizer_path):
 
 
 if __name__ == "__main__":
+    import sys
+    
     csv_path = "metadata.csv"
-    tokenizer_path = "VietnameseTokenizer/tokenizer.json"
+    
+    # Allow specifying tokenizer path as argument
+    if len(sys.argv) > 1:
+        tokenizer_path = sys.argv[1]
+    else:
+        tokenizer_path = "VietnameseTokenizer/tokenizer.json"
     
     test_oov_with_metadata(csv_path, tokenizer_path)
 

@@ -1,0 +1,105 @@
+# Dataset files
+metadata.csv
+*.csv
+data/
+datasets/
+audio/
+wavs/
+
+# Model checkpoints and weights
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.safetensors
+output/
+outputs/
+runs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Training logs
+logs/
+tensorboard/
+wandb/
+lightning_logs/
+
+# Tokenizer (trained - too large for git)
+VietnameseTokenizer_*/
+temp_tokenizer/
+
+# Backup files
+*.bak
+*.backup
+*.old
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Audio formats (if training data)
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.m4a
+
+# Gradio cache
+gradio_cached_examples/
+flagged/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Keep these
+!tokenizer.json
+!VietnameseTokenizer/tokenizer.json
+!VietnameseTokenizer/vocab_list.txt

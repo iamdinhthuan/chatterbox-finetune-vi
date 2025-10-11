@@ -944,7 +944,7 @@ def run_training(model_args, data_args, training_args):
         with open(model_args.model_config, "r") as file:
             m_paths = json.load(file)
         # Download the base model if using model_config
-        repo_name = "ResembleAI/chatterbox"
+        repo_name = "tel4vn/chatterxbox"
         from huggingface_hub import snapshot_download
         download_dir = Path(training_args.output_dir) / "chatterbox_weights"
         download_dir.mkdir(parents=True, exist_ok=True)

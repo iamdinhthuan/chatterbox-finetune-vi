@@ -166,7 +166,7 @@ def main():
     
     # Create model arguments
     model_args = ModelArguments(
-        model_name_or_path="ResembleAI/chatterbox",
+        model_name_or_path="tel4vn/chatterxbox",
         cache_dir="./cache",
         freeze_voice_encoder=True,
         freeze_s3gen=True,
