@@ -35,12 +35,17 @@ audio_003.wav|Tôi yêu tiếng Việt
 ### 3. Tạo Vietnamese Tokenizer
 
 ```bash
-python create_vietnamese_tokenizer.py
+python train_tokenizer_from_corpus.py metadata.csv
 ```
 
 **Output:**
-- `VietnameseTokenizer/tokenizer.json` (704 tokens)
+- `VietnameseTokenizer/tokenizer.json` (703 tokens, corpus-based BPE)
 - `VietnameseTokenizer/vocab_list.txt`
+
+**Đặc điểm:**
+- Learns từ YOUR Vietnamese data
+- Preserves special tokens từ pretrained model
+- 0% OOV on training corpus
 
 ### 4. Train
 
@@ -96,12 +101,13 @@ python test.py --model ./checkpoints/vietnamese --text "Xin chào"
 
 ```
 .
-├── create_vietnamese_tokenizer.py  # Tạo tokenizer
+├── train_tokenizer_from_corpus.py  # Tạo tokenizer từ corpus
 ├── train.py                         # Training script
 ├── test.py                          # Testing script
 ├── metadata.csv                     # Dataset CSV
+├── tokenizer.json                   # Original pretrained tokenizer
 ├── VietnameseTokenizer/
-│   ├── tokenizer.json              # Vietnamese tokenizer (704 tokens)
+│   ├── tokenizer.json              # Vietnamese tokenizer (703 tokens)
 │   └── vocab_list.txt              # Vocab list
 ├── checkpoints/                     # Model checkpoints
 │   └── vietnamese/
@@ -111,22 +117,19 @@ python test.py --model ./checkpoints/vietnamese --text "Xin chào"
 
 ## 🎯 Vietnamese Tokenizer
 
-**Đặc điểm:**
-- **704 tokens** (tương thích pretrained model)
-- **Character-level** + BPE merges
-- **Expressive tokens** (36): `[giggle]`, `[laughter]`, `[sigh]`, ...
-- **IPA phonemes** (55): `θ`, `ʃ`, `ɑː`, `ɓ`, `ɗ`, ...
-- **Từ phổ biến**: `có`, `là`, `và`, `một`, `của`, `không`, ...
-- **Phụ âm đầu**: `ng`, `nh`, `th`, `ch`, `tr`, `kh`, `ph`, ...
+**Trained từ corpus** với BPE (Byte Pair Encoding):
+- **703 tokens** (49 special + 654 Vietnamese)
+- **465 BPE merges** learned from your data
+- **0% OOV** on training corpus
+- **50% more efficient** than character-level
 
-**Cấu trúc:**
-- 0-2: Special tokens ([STOP], [UNK], [SPACE])
-- 3-254: Characters + Unicode
+**Special tokens preserved:**
+- 0-2: [STOP], [UNK], [SPACE]
 - 255: [START]
-- 256-603: BPE tokens + Unicode
-- 604-639: Expressive tokens
-- 640-694: IPA phonemes
+- 604-639: Expressive ([giggle], [laughter], [whisper]...)
 - 695-703: Placeholders
+
+**See `TOKENIZER_README.md` for details.**
 
 ## 💡 Tips
 
@@ -154,8 +157,8 @@ python train.py --csv metadata.csv --audio_dir ./ --batch_size 2
 
 ### Tokenizer error
 ```bash
-# Tạo lại tokenizer
-python create_vietnamese_tokenizer.py
+# Tạo lại tokenizer từ corpus
+python train_tokenizer_from_corpus.py metadata.csv
 ```
 
 ### Audio loading error

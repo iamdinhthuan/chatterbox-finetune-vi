@@ -19,8 +19,8 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 # Cài đặt dependencies
 pip install -r requirements.txt
 
-# Tạo Vietnamese tokenizer (bắt buộc trước khi train)
-python create_vietnamese_tokenizer.py
+# Tạo Vietnamese tokenizer từ corpus (bắt buộc trước khi train)
+python train_tokenizer_from_corpus.py metadata.csv
 ```
 
 ### Training
@@ -157,10 +157,11 @@ D:\TTS\chatterbox-finetuning\
 ├── test.py                     # Testing script
 ├── infer.py                    # Inference from specific checkpoint
 ├── batch_infer.py              # Batch inference
-├── create_vietnamese_tokenizer.py
+├── train_tokenizer_from_corpus.py  # Train tokenizer from corpus
+├── tokenizer.json              # Original pretrained tokenizer
 ├── metadata.csv                # Dataset file
 ├── VietnameseTokenizer/
-│   ├── tokenizer.json          # 704 tokens
+│   ├── tokenizer.json          # 703 tokens (corpus-based)
 │   └── vocab_list.txt
 ├── src/
 │   ├── finetune_t3_thai.py     # Core training logic
@@ -225,7 +226,7 @@ python train.py --csv metadata.csv --batch_size 2 --gradient_accumulation_steps 
 
 **Tokenizer not found:**
 ```powershell
-python create_vietnamese_tokenizer.py
+python train_tokenizer_from_corpus.py metadata.csv
 ```
 
 **Checkpoint loading error:**

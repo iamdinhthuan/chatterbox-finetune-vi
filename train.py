@@ -81,11 +81,8 @@ def main():
     tokenizer_path = Path("VietnameseTokenizer/tokenizer.json")
     if not tokenizer_path.exists():
         print("❌ Vietnamese tokenizer not found!")
-        print("   Creating Vietnamese tokenizer...")
-        os.system("python create_vietnamese_tokenizer.py")
-        if not tokenizer_path.exists():
-            print("❌ Failed to create tokenizer!")
-            return
+        print("   Please run: python train_tokenizer_from_corpus.py metadata.csv")
+        return
     
     print("="*80)
     print("VIETNAMESE TTS TRAINING")

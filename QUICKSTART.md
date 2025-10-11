@@ -9,8 +9,9 @@ pip install -r requirements.txt
 
 ### Bước 2: Tạo Tokenizer
 ```bash
-python create_vietnamese_tokenizer.py
+python train_tokenizer_from_corpus.py metadata.csv
 ```
+(Learns từ YOUR data, 0% OOV)
 
 ### Bước 3: Train
 ```bash
@@ -86,7 +87,7 @@ python train.py --csv metadata.csv --audio_dir ./ --batch_size 2
 
 **Tokenizer error?**
 ```bash
-python create_vietnamese_tokenizer.py
+python train_tokenizer_from_corpus.py metadata.csv
 ```
 
 **Audio loading error?**
