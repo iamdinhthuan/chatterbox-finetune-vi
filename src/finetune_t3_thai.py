@@ -700,6 +700,7 @@ class SpeechDataCollator:
             "t3_cond_emotion_adv": t3_cond_emotion_adv,
             "labels_text": labels_text,       # (B, max_text_len - 1) masked with -100
             "labels_speech": labels_speech,   # (B, max_speech_len - 1) masked with -100
+            "labels": labels_speech,          # Add this for Trainer compatibility - use speech labels as main
         }
 # --- Model Wrapper ---
 class T3ForFineTuning(torch.nn.Module):
@@ -735,7 +736,12 @@ class T3ForFineTuning(torch.nn.Module):
                 t3_cond_prompt_speech_tokens,
                 t3_cond_emotion_adv,
                 labels_text = None,
-                labels_speech=None):
+                labels_speech=None,
+                labels=None):
+
+        # Use "labels" as fallback for labels_speech (for Trainer compatibility)
+        if labels_speech is None and labels is not None:
+            labels_speech = labels
 
         current_t3_cond = T3Cond(
                                 speaker_emb=t3_cond_speaker_emb,
@@ -765,6 +771,63 @@ trainer_instance: Optional[Trainer] = None
 
 class SafeCheckpointTrainer(Trainer):
     """Custom trainer that handles PyTorch 2.6 checkpoint loading issues"""
+    
+    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+        """
+        Override to ensure loss is properly extracted from tuple output.
+        """
+        outputs = model(**inputs)
+        
+        # Model returns tuple (loss, logits)
+        if isinstance(outputs, (tuple, list)):
+            loss = outputs[0]
+        else:
+            loss = outputs
+        
+        return (loss, outputs) if return_outputs else loss
+    
+    def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=None):
+        """
+        Override prediction_step for evaluation to properly return loss.
+        """
+        has_labels = all(inputs.get(k) is not None for k in self.label_names)
+        
+        # Move inputs to device
+        inputs = self._prepare_inputs(inputs)
+        
+        # Forward pass
+        with torch.no_grad():
+            outputs = model(**inputs)
+            
+            # Extract loss and logits from tuple (loss, logits)
+            if isinstance(outputs, (tuple, list)):
+                loss = outputs[0] if len(outputs) > 0 else None
+                logits = outputs[1] if len(outputs) > 1 else None
+            else:
+                loss = outputs
+                logits = None
+        
+        # Detach and move to CPU, check for NaN
+        if loss is not None and isinstance(loss, torch.Tensor):
+            loss = loss.detach()
+            # Skip NaN losses - don't let them contaminate the average
+            if torch.isnan(loss) or torch.isinf(loss):
+                if not hasattr(self, '_nan_count'):
+                    self._nan_count = 0
+                self._nan_count += 1
+                if self._nan_count <= 10:
+                    logger.warning(f"Skipping NaN/Inf loss in evaluation batch (total skipped: {self._nan_count})")
+                loss = None  # Return None so Trainer skips this batch
+        
+        if prediction_loss_only:
+            return (loss, None, None)
+        
+        # Detach logits
+        if logits is not None and isinstance(logits, torch.Tensor):
+            logits = logits.detach()
+        
+        # Return (loss, logits, labels)
+        return (loss, logits, None)
     
     def _load_rng_state(self, checkpoint):
         """Override to handle weights_only loading issues"""
@@ -1302,7 +1365,7 @@ def run_training(model_args, data_args, training_args):
         callbacks=callbacks if callbacks else None
     )
 
-    if training_args.label_names is None: trainer_instance.label_names = ["lables"]
+    if training_args.label_names is None: trainer_instance.label_names = ["labels"]
 
 
     if training_args.do_train:
