@@ -87,7 +87,9 @@ def preprocess_sample(
         
         # 3. Speech tokenization
         with torch.no_grad():
-            speech_tokens = speech_tokenizer.encode(wav_tensor).squeeze(0)  # [T]
+            # S3Tokenizer uses forward() method, not encode()
+            speech_tokens_batch, speech_lengths = speech_tokenizer.forward([wav_tensor])
+            speech_tokens = speech_tokens_batch[0]  # Get first (and only) item from batch
         
         if speech_tokens.shape[0] > max_speech_len:
             logger.warning(f"Speech too long ({speech_tokens.shape[0]} > {max_speech_len}): {audio_path}")
