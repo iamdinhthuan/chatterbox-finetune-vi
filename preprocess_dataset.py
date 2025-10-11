@@ -171,7 +171,7 @@ def main():
         model_dir = Path("./cache/chatterbox_model")
         model_dir.mkdir(parents=True, exist_ok=True)
         
-        repo_id = "tel4vn/chatterxbox"
+        repo_id = "ResembleAI/chatterbox"
         files_to_download = ["ve.safetensors", "s3gen.safetensors", "t3_cfg.safetensors"]
         
         logger.info(f"Downloading model from {repo_id}...")
@@ -208,8 +208,9 @@ def main():
         from tokenizers import Tokenizer
         text_tokenizer = Tokenizer.from_file(str(tokenizer_path))
         
-        speech_tokenizer = tts.model.speech_tokenizer
-        voice_encoder = tts.model.ve
+        # Access correct attributes: tts.s3gen.tokenizer and tts.ve
+        speech_tokenizer = tts.s3gen.tokenizer
+        voice_encoder = tts.ve
         voice_encoder.eval()
         
         logger.info("✅ Model components loaded")
