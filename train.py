@@ -34,7 +34,7 @@ def main():
     parser.add_argument("--batch_size", type=int, default=8, help="Batch size (default: 4)")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1, help="Gradient accumulation steps (default: 1)")
     parser.add_argument("--epochs", type=int, default=3, help="Number of epochs (default: 10)")
-    parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate (default: 5e-5)")
+    parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate (default: 5e-5)")
     parser.add_argument("--save_steps", type=int, default=5000, help="Save checkpoint every N steps (default: 5000)")
     parser.add_argument("--eval_steps", type=int, default=5000, help="Evaluate every N steps (default: 5000)")
     parser.add_argument("--max_steps", type=int, default=-1, help="Maximum number of training steps (default: -1 for full training)")
@@ -195,11 +195,11 @@ def main():
             audio_dir=str(audio_dir),
             dataset_dir=None,
             dataset_name=None,
-            eval_split_size=0.99,
+            eval_split_size=0.01,
             max_text_len=256,
             max_speech_len=1200,
             audio_prompt_duration_s=3.0,
-            preprocessing_num_workers=8,
+            preprocessing_num_workers=12,
             ignore_verifications=True,
             use_streaming=False,
         )
@@ -212,7 +212,7 @@ def main():
         num_train_epochs=args.epochs,
         max_steps=args.max_steps if args.max_steps > 0 else -1,
         per_device_train_batch_size=args.batch_size,
-        per_device_eval_batch_size=args.batch_size,
+        per_device_eval_batch_size=1,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
 
         learning_rate=args.lr,
@@ -236,7 +236,7 @@ def main():
         save_total_limit=3,
         data_seed=42,
         bf16=True,
-        dataloader_num_workers=8,
+        dataloader_num_workers=12,
         dataloader_persistent_workers=True,
         seed=42,
         report_to=["tensorboard"],
