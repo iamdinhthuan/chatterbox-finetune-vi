@@ -163,7 +163,7 @@ def main():
     
     # Create model arguments
     model_args = ModelArguments(
-        model_name_or_path="tel4vn/chatterxbox",
+        model_name_or_path="ResembleAI/chatterbox",
         cache_dir="./cache",
         freeze_voice_encoder=True,
         freeze_s3gen=True,
@@ -196,7 +196,7 @@ def main():
             max_text_len=256,
             max_speech_len=1200,
             audio_prompt_duration_s=3.0,
-            preprocessing_num_workers=12,
+            preprocessing_num_workers=8,
             ignore_verifications=True,
             use_streaming=False,
         )
@@ -213,7 +213,7 @@ def main():
         gradient_accumulation_steps=args.gradient_accumulation_steps,
 
         learning_rate=args.lr,
-        warmup_steps=5000,
+        warmup_steps=10000,
         lr_scheduler_type="cosine",
 
         optim="adamw_torch",
@@ -227,13 +227,14 @@ def main():
         do_eval=True,
         eval_strategy="steps",
         eval_steps=args.eval_steps,
-
         save_strategy="steps",
         save_steps=args.save_steps,
         save_total_limit=3,
         data_seed=42,
         bf16=True,
-        dataloader_num_workers=12,
+        dataloader_num_workers=8,
+        warmup_ratio=0.05,
+
         dataloader_persistent_workers=True,
         seed=42,
         report_to=["tensorboard"],
