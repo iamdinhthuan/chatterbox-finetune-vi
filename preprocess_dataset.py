@@ -27,7 +27,7 @@ from tqdm import tqdm
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from chatterbox.tts import ChatterboxTTS, punc_norm
-from chatterbox.models.s3tokenizer import S3_SR
+from chatterbox.models.s3tokenizer import S3_SR  # S3_SR = 16kHz for speech tokenizer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -69,7 +69,7 @@ def preprocess_sample(
         if add_silence:
             wav = add_silence_padding(wav, sr_orig, silence_padding_ms)
         
-        # Resample to S3 sample rate (24kHz)
+        # Resample to S3 sample rate (16kHz for speech tokenizer)
         if sr_orig != S3_SR:
             wav = librosa.resample(wav, orig_sr=sr_orig, target_sr=S3_SR)
         
@@ -88,8 +88,11 @@ def preprocess_sample(
         # 3. Speech tokenization
         with torch.no_grad():
             # S3Tokenizer uses forward() method, not encode()
-            speech_tokens_batch, speech_lengths = speech_tokenizer.forward([wav_tensor])
-            speech_tokens = speech_tokens_batch[0]  # Get first (and only) item from batch
+            # Move wav_tensor to same device as speech_tokenizer
+            device = next(speech_tokenizer.parameters()).device
+            wav_tensor_device = wav_tensor.to(device)
+            speech_tokens_batch, speech_lengths = speech_tokenizer.forward([wav_tensor_device])
+            speech_tokens = speech_tokens_batch[0].cpu()  # Get first item from batch, move to CPU
         
         if speech_tokens.shape[0] > max_speech_len:
             logger.warning(f"Speech too long ({speech_tokens.shape[0]} > {max_speech_len}): {audio_path}")
@@ -105,7 +108,10 @@ def preprocess_sample(
             prompt_wav = F.pad(wav_tensor, (0, pad_len))
         
         with torch.no_grad():
-            voice_emb = voice_encoder(prompt_wav)  # [1, D]
+            # Move to device
+            device = next(voice_encoder.parameters()).device
+            prompt_wav_device = prompt_wav.to(device)
+            voice_emb = voice_encoder(prompt_wav_device).cpu()  # [1, D], move to CPU
         
         # 5. Return preprocessed data
         return {
