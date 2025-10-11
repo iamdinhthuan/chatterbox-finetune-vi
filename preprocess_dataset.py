@@ -73,7 +73,9 @@ def preprocess_sample(
         if sr_orig != S3_SR:
             wav = librosa.resample(wav, orig_sr=sr_orig, target_sr=S3_SR)
         
-        wav_tensor = torch.from_numpy(wav).float().unsqueeze(0)  # [1, T]
+        # Create tensors: 1D for S3Tokenizer, 2D for voice encoder
+        wav_tensor_1d = torch.from_numpy(wav).float()  # [T] for S3Tokenizer
+        wav_tensor_2d = wav_tensor_1d.unsqueeze(0)      # [1, T] for voice encoder
         
         # 2. Tokenize text
         text_normalized = punc_norm(text)
@@ -85,27 +87,26 @@ def preprocess_sample(
         
         text_tensor = torch.tensor(text_tokens, dtype=torch.long)
         
-        # 3. Speech tokenization
+        # 3. Speech tokenization (S3Tokenizer expects list of 1D tensors)
         with torch.no_grad():
-            # S3Tokenizer uses forward() method, not encode()
-            # Move wav_tensor to same device as speech_tokenizer
             device = next(speech_tokenizer.parameters()).device
-            wav_tensor_device = wav_tensor.to(device)
-            speech_tokens_batch, speech_lengths = speech_tokenizer.forward([wav_tensor_device])
+            wav_1d_device = wav_tensor_1d.to(device)
+            # Pass as list of 1D tensors, S3Tokenizer will add batch dim internally
+            speech_tokens_batch, speech_lengths = speech_tokenizer.forward([wav_1d_device])
             speech_tokens = speech_tokens_batch[0].cpu()  # Get first item from batch, move to CPU
         
         if speech_tokens.shape[0] > max_speech_len:
             logger.warning(f"Speech too long ({speech_tokens.shape[0]} > {max_speech_len}): {audio_path}")
             return None
         
-        # 4. Voice encoding (for prompt)
+        # 4. Voice encoding (for prompt, uses 2D tensor [1, T])
         prompt_len = int(audio_prompt_duration_s * S3_SR)
-        if wav_tensor.shape[-1] >= prompt_len:
-            prompt_wav = wav_tensor[:, :prompt_len]
+        if wav_tensor_2d.shape[-1] >= prompt_len:
+            prompt_wav = wav_tensor_2d[:, :prompt_len]
         else:
             # Pad if too short
-            pad_len = prompt_len - wav_tensor.shape[-1]
-            prompt_wav = F.pad(wav_tensor, (0, pad_len))
+            pad_len = prompt_len - wav_tensor_2d.shape[-1]
+            prompt_wav = F.pad(wav_tensor_2d, (0, pad_len))
         
         with torch.no_grad():
             # Move to device
