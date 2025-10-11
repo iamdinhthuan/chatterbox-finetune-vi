@@ -31,13 +31,17 @@ def main():
 
     # Optional training arguments
     parser.add_argument("--output_dir", type=str, default="./checkpoints/vietnamese", help="Output directory for checkpoints")
-    parser.add_argument("--batch_size", type=int, default=8, help="Batch size (default: 4)")
+    parser.add_argument("--batch_size", type=int, default=8, help="Batch size (default: 8)")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1, help="Gradient accumulation steps (default: 1)")
-    parser.add_argument("--epochs", type=int, default=3, help="Number of epochs (default: 10)")
-    parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate (default: 5e-5)")
+    parser.add_argument("--epochs", type=int, default=10, help="Number of epochs (default: 10, recommended: 5-10 to avoid overfitting)")
+    parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate (default: 1e-5)")
     parser.add_argument("--save_steps", type=int, default=5000, help="Save checkpoint every N steps (default: 5000)")
     parser.add_argument("--eval_steps", type=int, default=5000, help="Evaluate every N steps (default: 5000)")
     parser.add_argument("--max_steps", type=int, default=-1, help="Maximum number of training steps (default: -1 for full training)")
+    
+    # Preprocessing optimization (>4x faster training)
+    parser.add_argument("--use_preprocessed", action="store_true", help="Use preprocessed .pt files for faster training (recommended)")
+    parser.add_argument("--preprocessed_dir", type=str, default="./preprocessed_data", help="Directory containing preprocessed .pt files")
 
     args = parser.parse_args()
 
@@ -99,11 +103,27 @@ def main():
     print(f"💾 Output: {args.output_dir}")
     print(f"🔢 Batch size: {args.batch_size}")
     print(f"📈 Learning rate: {args.lr}")
-    print(f"🔄 Epochs: {args.epochs}")
+    print(f"🔄 Epochs: {args.epochs} (recommended: 5-10)")
     if args.max_steps > 0:
         print(f"⚡ Max steps: {args.max_steps} (will override epochs)")
     print(f"💾 Save every: {args.save_steps} steps")
     print(f"📊 Eval every: {args.eval_steps} steps")
+    
+    # Preprocessing info
+    if args.use_preprocessed:
+        preprocessed_dir = Path(args.preprocessed_dir)
+        if preprocessed_dir.exists():
+            print(f"\n🚀 Using preprocessed data: {preprocessed_dir}")
+            print(f"   Expected speedup: 2-4x faster training!")
+        else:
+            print(f"\n❌ Preprocessed directory not found: {preprocessed_dir}")
+            print(f"   Please run: python preprocess_dataset.py --csv {csv_path}")
+            return
+    else:
+        print(f"\n⚠️  Not using preprocessing. Consider preprocessing for 2-4x speedup:")
+        print(f"   python preprocess_dataset.py --csv {csv_path} --add_silence")
+        print(f"   python train.py --use_preprocessed ...")
+    
     print("="*80 + "\n")
 
     # Count samples
