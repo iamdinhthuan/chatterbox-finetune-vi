@@ -254,6 +254,7 @@ def main():
     
     successful = 0
     failed = 0
+    sample_list = []  # Track successful samples for metadata
     
     for idx, sample in enumerate(tqdm(samples, desc="Preprocessing")):
         output_file = output_dir / f"sample_{idx:06d}.pt"
@@ -261,6 +262,12 @@ def main():
         if output_file.exists():
             # Skip if already preprocessed
             successful += 1
+            sample_list.append({
+                "idx": idx,
+                "pt_file": f"sample_{idx:06d}.pt",
+                "audio_path": str(sample["audio_path"]),
+                "text": sample["text"]
+            })
             continue
         
         preprocessed = preprocess_sample(
@@ -279,6 +286,12 @@ def main():
         if preprocessed is not None:
             torch.save(preprocessed, output_file)
             successful += 1
+            sample_list.append({
+                "idx": idx,
+                "pt_file": f"sample_{idx:06d}.pt",
+                "audio_path": str(sample["audio_path"]),
+                "text": sample["text"]
+            })
         else:
             failed += 1
     
@@ -290,6 +303,7 @@ def main():
         "audio_prompt_duration_s": args.audio_prompt_duration,
         "add_silence": args.add_silence,
         "silence_padding_ms": args.silence_padding_ms,
+        "samples": sample_list,  # List of sample info for dataset loading
     }
     
     metadata_file = output_dir / "metadata.json"

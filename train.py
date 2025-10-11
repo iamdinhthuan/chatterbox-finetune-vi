@@ -205,6 +205,8 @@ def main():
             preprocessing_num_workers=8,
             ignore_verifications=True,
             use_streaming=False,
+            use_preprocessed=args.use_preprocessed,
+            preprocessed_dir=args.preprocessed_dir,
         )
     else:
         data_args = DataArguments(
@@ -219,6 +221,8 @@ def main():
             preprocessing_num_workers=8,
             ignore_verifications=True,
             use_streaming=False,
+            use_preprocessed=args.use_preprocessed,
+            preprocessed_dir=args.preprocessed_dir,
         )
 
     # Create training arguments
