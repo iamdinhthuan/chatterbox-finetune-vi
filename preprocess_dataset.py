@@ -73,9 +73,8 @@ def preprocess_sample(
         if sr_orig != S3_SR:
             wav = librosa.resample(wav, orig_sr=sr_orig, target_sr=S3_SR)
         
-        # Create tensors: 1D for S3Tokenizer, 2D for voice encoder
+        # Create tensor: 1D for S3Tokenizer
         wav_tensor_1d = torch.from_numpy(wav).float()  # [T] for S3Tokenizer
-        wav_tensor_2d = wav_tensor_1d.unsqueeze(0)      # [1, T] for voice encoder
         
         # 2. Tokenize text
         text_normalized = punc_norm(text)
@@ -99,20 +98,19 @@ def preprocess_sample(
             logger.warning(f"Speech too long ({speech_tokens.shape[0]} > {max_speech_len}): {audio_path}")
             return None
         
-        # 4. Voice encoding (for prompt, uses 2D tensor [1, T])
+        # 4. Voice encoding (for prompt, use embeds_from_wavs which handles mel-spectrogram conversion)
         prompt_len = int(audio_prompt_duration_s * S3_SR)
-        if wav_tensor_2d.shape[-1] >= prompt_len:
-            prompt_wav = wav_tensor_2d[:, :prompt_len]
+        if len(wav) >= prompt_len:
+            prompt_wav_np = wav[:prompt_len]
         else:
             # Pad if too short
-            pad_len = prompt_len - wav_tensor_2d.shape[-1]
-            prompt_wav = F.pad(wav_tensor_2d, (0, pad_len))
+            pad_len = prompt_len - len(wav)
+            prompt_wav_np = np.pad(wav, (0, pad_len), mode='constant')
         
         with torch.no_grad():
-            # Move to device
-            device = next(voice_encoder.parameters()).device
-            prompt_wav_device = prompt_wav.to(device)
-            voice_emb = voice_encoder(prompt_wav_device).cpu()  # [1, D], move to CPU
+            # Use embeds_from_wavs which internally converts to mel-spectrograms
+            voice_emb_np = voice_encoder.embeds_from_wavs([prompt_wav_np], sample_rate=S3_SR)
+            voice_emb = torch.from_numpy(voice_emb_np)  # [1, D]
         
         # 5. Return preprocessed data
         return {
