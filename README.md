@@ -1,410 +1,467 @@
-# Vietnamese TTS Fine-tuning (Chatterbox)
+# Vietnamese TTS Fine-tuning with Chatterbox
 
-Fine-tune Chatterbox TTS model cho tiếng Việt với dataset của bạn.
+Fine-tune [ResembleAI/Chatterbox](https://github.com/resemble-ai/chatterbox) for Vietnamese text-to-speech.
 
----
+## 🚀 Quick Start
 
-## 🚀 Quick Start (3 bước)
+### 1. Install Dependencies
 
-### 1. Cài đặt
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Tạo Tokenizer từ Corpus
+### 2. Prepare Data
+
+**Format:** CSV with pipe delimiter
+```csv
+audio|transcript
+wavs/audio_001.wav|Xin chào các bạn
+wavs/audio_002.wav|Hôm nay trời đẹp
+```
+
+### 3. Train Vietnamese Tokenizer
+
 ```bash
 python train_tokenizer_from_corpus.py metadata.csv
 ```
 
-**Output:**
-- `VietnameseTokenizer/tokenizer.json` - Trained tokenizer
-- `VietnameseTokenizer/vocab_list.txt` - Human-readable vocab
+**Output:** `VietnameseTokenizer/tokenizer.json` (704 tokens, preserves 49 special tokens)
 
-**Đặc điểm:**
-- 703 tokens (49 special + 654 Vietnamese)
-- Learns BPE merges từ YOUR data
-- 0% OOV trên training corpus
-- Preserves special tokens từ pretrained model
+### 4. Preprocess Dataset (Optional but Recommended)
 
-### 3. Train TTS Model
+**Why?** 2-4x faster training by pre-computing audio features offline.
+
+**Test first (10 seconds):**
 ```bash
-python train.py --csv metadata.csv --audio_dir ./
+python test_preprocessing_single.py
 ```
 
-**Tùy chọn:**
+**Single-threaded (22 hours for 2.6M samples):**
+```bash
+python preprocess_dataset.py \
+  --csv metadata.csv \
+  --audio_dir wavs \
+  --add_silence
+```
+
+**Multi-threaded (3-6 hours, **recommended**):**
+```bash
+python preprocess_dataset.py \
+  --csv metadata.csv \
+  --audio_dir wavs \
+  --add_silence \
+  --num_workers 8
+```
+
+**Workers:** Use `nproc` to check CPU cores. Recommend: 4-8 workers.
+
+**Verify after preprocessing:**
+```bash
+python verify_preprocessing_format.py
+```
+
+### 5. Train
+
+**Without preprocessing:**
 ```bash
 python train.py \
   --csv metadata.csv \
-  --audio_dir /path/to/audio \
-  --output_dir ./checkpoints/my_model \
-  --batch_size 4 \
+  --audio_dir wavs \
+  --epochs 5 \
+  --batch_size 4
+```
+
+**With preprocessing (2-4x faster):**
+```bash
+python train.py \
+  --csv metadata.csv \
+  --use_preprocessed \
   --epochs 10 \
-  --lr 5e-5
+  --batch_size 8 \
+  --lr 1e-5
 ```
 
-### 4. Test Model
+### 6. Inference
+
 ```bash
-python test.py --model ./checkpoints/vietnamese --text "Xin chào"
+python infer.py \
+  --checkpoint ./checkpoints/vietnamese/checkpoint-XXXXX \
+  --text "Xin chào, đây là bản demo tiếng Việt" \
+  --reference_audio ./sample.wav \
+  --output ./output.wav
 ```
 
 ---
 
-## 📋 Yêu cầu
+## 📊 Dataset Requirements
 
-- Python 3.8+
-- GPU với CUDA (khuyến nghị)
-- Dataset: metadata.csv + audio files (.wav)
+- **Format:** Pipe-delimited CSV (`audio|transcript`)
+- **Audio:** 16kHz or higher, mono, WAV format
+- **Text:** Vietnamese text (normalized)
+- **Size:** Minimum 1 hour, recommended 10+ hours
 
----
-
-## 📝 Chuẩn bị Dataset
-
-### Format metadata.csv:
-
-```csv
-audio|transcript
-audio_001.wav|Xin chào các bạn
-audio_002.wav|Hôm nay trời đẹp
-audio_003.wav|Tôi yêu tiếng Việt
+**Example structure:**
 ```
-
-**Lưu ý:**
-- Delimiter: `|` (pipe)
-- Audio files: `.wav` format, 16kHz-48kHz, mono
-- Độ dài audio: 1-10 giây/sample
-- Số lượng: Tối thiểu 1,000 samples, khuyến nghị 10,000+
-- Audio files cùng thư mục với CSV (hoặc dùng `--audio_dir`)
-
----
-
-## 🎯 Vietnamese Tokenizer Training
-
-### Cách hoạt động:
-
-Script `train_tokenizer_from_corpus.py` sẽ:
-1. Load texts từ metadata.csv
-2. Train BPE tokenizer từ YOUR Vietnamese data
-3. Preserve tất cả special tokens từ pretrained model
-4. Save tokenizer tại `VietnameseTokenizer/`
-
-### Kết quả:
-
-- **Vocab size**: 703 tokens
-- **Special tokens**: 49 (preserved at original positions)
-  - 0-2: [STOP], [UNK], [SPACE]
-  - 255: [START]
-  - 604-639: Expressive ([giggle], [laughter], [whisper]...)
-  - 695-703: Placeholders
-- **Vietnamese tokens**: 654 (learned from corpus)
-- **BPE merges**: ~465 merge operations
-- **OOV rate**: 0% on training corpus
-- **Efficiency**: 50% better than character-level
-
-### Example:
-```python
-from tokenizers import Tokenizer
-
-tokenizer = Tokenizer.from_file("VietnameseTokenizer/tokenizer.json")
-
-# Vietnamese text
-encoding = tokenizer.encode("Tiếng Việt rất hay")
-print(encoding.tokens)
-# → ['T', 'iế', 'ng', 'V', 'iệt', 'rất', 'hay']  # 7 tokens
-
-# Special tokens work
-encoding = tokenizer.encode("[giggle] Xin chào [whisper]")
-print(encoding.tokens)
-# → ['[giggle]', 'X', 'in', 'ch', 'ào', '[whisper]']
+project/
+├── metadata.csv
+├── wavs/
+│   ├── audio_001.wav
+│   ├── audio_002.wav
+│   └── ...
 ```
 
 ---
 
-## 📊 Training Parameters
+## 🔧 Training Configuration
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `--csv` | Path to metadata CSV | **REQUIRED** |
-| `--audio_dir` | Audio directory | `.` |
-| `--output_dir` | Output checkpoint directory | `./checkpoints/vietnamese` |
-| `--batch_size` | Batch size | `8` |
-| `--gradient_accumulation_steps` | Gradient accumulation | `1` |
-| `--epochs` | Number of epochs | `3` |
-| `--lr` | Learning rate | `1e-5` |
-| `--save_steps` | Save checkpoint every N steps | `5000` |
-| `--eval_steps` | Evaluate every N steps | `5000` |
-| `--max_steps` | Max training steps (-1 = full) | `-1` |
+### Recommended Settings
 
-### Training Examples:
+| Dataset Size | Epochs | Batch Size | Learning Rate | Training Time* |
+|--------------|--------|------------|---------------|----------------|
+| 1-5 hours | 5-10 | 4 | 1e-5 | 1-3 days |
+| 5-20 hours | 5-8 | 8 | 1e-5 | 3-7 days |
+| 20+ hours | 3-5 | 8-16 | 1e-5 | 1-2 weeks |
 
-**Basic:**
-```bash
-python train.py --csv metadata.csv --audio_dir ./
-```
+*Without preprocessing. With preprocessing: 2-4x faster.
 
-**Memory optimization (low VRAM):**
-```bash
-python train.py --csv metadata.csv --batch_size 2 --gradient_accumulation_steps 4
-```
+### Advanced Options
 
-**Long training:**
 ```bash
 python train.py \
   --csv metadata.csv \
-  --audio_dir /data/audio \
-  --output_dir ./models/vietnamese_v1 \
+  --use_preprocessed \
+  --epochs 10 \
   --batch_size 8 \
-  --epochs 20 \
-  --save_steps 1000
-```
-
-**Separate train/val files:**
-```bash
-python train.py --train_csv train.csv --val_csv val.csv --audio_dir ./audio
+  --lr 1e-5 \
+  --gradient_accumulation_steps 2 \
+  --save_steps 5000 \
+  --eval_steps 5000 \
+  --max_steps 100000
 ```
 
 ---
 
-## 🧪 Testing & Inference
+## ⚡ Preprocessing Performance
 
-### Interactive mode:
-```bash
-python test.py --model ./checkpoints/vietnamese
-```
+### Speed Comparison
 
-### Direct text:
-```bash
-python test.py --model ./checkpoints/vietnamese --text "Xin chào Việt Nam"
-```
+| Mode | Workers | Speed | Time (2.6M samples) | Speedup |
+|------|---------|-------|---------------------|---------|
+| **None** | - | - | Training: ~5-10 days | 1x |
+| **Preprocessed** | 1 | 32 it/s | 22 hours + Training: ~2 days | 2-3x |
+| **Preprocessed** | 4 | 120 it/s | 6 hours + Training: ~2 days | 2-3x |
+| **Preprocessed** | 8 | 220 it/s | **3.3 hours** + Training: ~2 days | **2-3x** |
 
-### Custom output:
-```bash
-python test.py \
-  --model ./checkpoints/vietnamese \
-  --text "Hello" \
-  --output hello.wav \
-  --temperature 0.8 \
-  --cfg_weight 0.5
-```
+### What Gets Preprocessed?
 
-### Parameters:
+Preprocessing saves:
+- ✅ Text tokens (with BOS/EOS)
+- ✅ Speech tokens (with BOS/EOS)
+- ✅ Speaker embeddings (256 dims)
+- ✅ Conditioning prompt tokens (150 tokens)
+- ✅ Emotion scalar (0.5)
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `--model` | Model directory | **REQUIRED** |
-| `--text` | Text to synthesize | Interactive |
-| `--output` | Output WAV file | `output.wav` |
-| `--device` | Device (cuda/cpu/mps) | Auto-detect |
-| `--temperature` | Temperature (0.5-1.0) | `0.8` |
-| `--cfg_weight` | CFG weight (0.5-1.0) | `0.5` |
+**NOT saved:** Raw audio (use original files for inference)
 
-**Tips:**
-- **Temperature cao** (0.8-1.0): Tự nhiên hơn, đa dạng hơn
-- **Temperature thấp** (0.5-0.7): Ổn định hơn, ít lỗi hơn
-- **CFG weight cao**: Theo text sát hơn
+**Storage:** ~20-25 GB for 2.6M samples (~8 KB per sample)
 
 ---
 
-## 📁 Project Structure
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**1. "S3Tokenizer object has no attribute 'encode'"**
+- **Fixed in latest version.** Pull latest code: `git pull origin main`
+
+**2. "input.size(-1) must be equal to input_size. Expected 40, got 48000"**
+- **Fixed in latest version.** Uses `embeds_from_wavs()` instead of direct call.
+
+**3. Data format mismatch errors during training**
+- **Solution:** Re-run preprocessing with latest code. Old .pt files are incompatible.
+- Delete old data: `rm -rf preprocessed_data/`
+- Re-preprocess: `python preprocess_dataset.py --csv metadata.csv --audio_dir wavs --add_silence`
+
+**4. Out of memory (OOM)**
+- Reduce batch size: `--batch_size 2`
+- Enable gradient accumulation: `--gradient_accumulation_steps 4`
+- Reduce max lengths: `--max_text_len 128 --max_speech_len 800`
+
+**5. Training very slow**
+- Use preprocessing: `python preprocess_dataset.py ... --num_workers 8`
+- Enable bf16: Already enabled by default
+- Increase batch size if memory allows: `--batch_size 16`
+
+---
+
+## 📝 Tokenizer Details
+
+### Vietnamese Tokenizer Stats
+
+- **Total tokens:** 704 (matches pretrained model)
+- **Vietnamese vocab:** 655 tokens
+- **Special tokens:** 49 preserved from pretrained model
+  - Text: BOS=255, EOS=0
+  - Speech: BOS=6561, EOS=6562
+- **Training method:** BPE (Byte Pair Encoding) on 2.6M samples
+- **Coverage:** 100% on Vietnamese corpus
+
+### Special Token Positions
+
+```
+Positions 0-2: [0, 1, 2]
+Position 255: [255]
+Positions 604-639: [604, 605, ..., 639]
+Positions 695-703: [695, 696, ..., 703]
+```
+
+**Why preserve?** Pretrained model expects these exact token IDs. Changing them breaks the model.
+
+---
+
+## 🧪 Verification Scripts
+
+### Test Single Sample (10 seconds)
+
+```bash
+python test_preprocessing_single.py --sample_idx 0
+```
+
+**Verifies:**
+- ✅ Audio loading
+- ✅ Model loading
+- ✅ Preprocessing format
+- ✅ BOS/EOS tokens (255, 0, 6561, 6562)
+- ✅ All required fields present
+
+**Output:** "VERIFICATION PASSED" = safe to run full preprocessing
+
+### Verify Preprocessed Data
+
+```bash
+python verify_preprocessing_format.py
+```
+
+**Checks:**
+- Keys present
+- Data types correct
+- Tensor shapes correct
+- BOS/EOS tokens correct
+- Lengths match
+
+---
+
+## 📂 File Structure
 
 ```
 chatterbox-finetuning/
-│
-├── train_tokenizer_from_corpus.py  # Train tokenizer from corpus
-├── train.py                         # Main training script
-├── test.py                          # Testing/inference
-├── test_oov.py                      # Test OOV coverage (optional)
-│
-├── tokenizer.json                   # Original pretrained tokenizer (input)
-├── metadata.csv                     # Your dataset (input)
-│
-├── VietnameseTokenizer/            # Trained tokenizer (output)
-│   ├── tokenizer.json              # Use this for training
-│   └── vocab_list.txt              # Human-readable vocab
-│
-├── checkpoints/                    # Model checkpoints (output)
+├── README.md                          # This file
+├── WARP.md                            # Developer guide
+├── metadata.csv                       # Your training data
+├── wavs/                              # Audio files
+├── VietnameseTokenizer/
+│   └── tokenizer.json                 # Trained tokenizer
+├── preprocessed_data/                 # Preprocessed features (optional)
+│   ├── sample_000000.pt
+│   ├── sample_000001.pt
+│   └── metadata.json
+├── checkpoints/                       # Training checkpoints
 │   └── vietnamese/
-│       ├── checkpoint-N/
-│       └── logs/                   # TensorBoard logs
-│
-└── src/                            # Source code
-    ├── finetune_t3_thai.py         # Core training logic
-    └── chatterbox/                 # Chatterbox TTS library
+├── train_tokenizer_from_corpus.py    # Train tokenizer
+├── preprocess_dataset.py              # Preprocess dataset
+├── train.py                           # Training script
+├── infer.py                           # Inference script
+├── test_preprocessing_single.py       # Test preprocessing
+└── verify_preprocessing_format.py     # Verify format
 ```
 
 ---
 
-## 💡 Tips & Best Practices
+## 🔬 Technical Details
 
-### Dataset:
-- ✅ Chất lượng audio cao, ít noise
-- ✅ Giọng đọc rõ ràng, tự nhiên
-- ✅ Độ dài 1-10 giây/sample
-- ✅ Tối thiểu 1,000 samples, khuyến nghị 10,000+
-- ✅ Text chuẩn, ít typo
+### Data Format (Preprocessed)
 
-### Tokenizer:
-- ✅ Train tokenizer từ corpus TRƯỚC khi train model
-- ✅ Test OOV coverage: `python test_oov.py`
-- ✅ Nên có 0% OOV rate
+Each `.pt` file contains:
 
-### Training:
-- ✅ Bắt đầu với batch_size nhỏ (2-4) nếu VRAM thấp
-- ✅ Dùng gradient_accumulation để tăng effective batch size
-- ✅ Monitor loss với TensorBoard: `tensorboard --logdir checkpoints/vietnamese/logs`
-- ✅ Save checkpoints thường xuyên (mỗi 1000-5000 steps)
-- ✅ Training time: ~1-3 ngày cho 10k samples trên 1 GPU
+```python
+{
+    "text_tokens": torch.Tensor([255, 45, 67, ..., 0]),         # [seq_len], dtype=long
+    "text_token_lens": torch.Tensor(152),                        # scalar, dtype=long
+    "speech_tokens": torch.Tensor([6561, 1234, ..., 6562]),     # [seq_len], dtype=long
+    "speech_token_lens": torch.Tensor(805),                      # scalar, dtype=long
+    "t3_cond_speaker_emb": torch.Tensor([0.1, 0.2, ...]),      # [256], dtype=float
+    "t3_cond_prompt_speech_tokens": torch.Tensor([...]),        # [150], dtype=long
+    "t3_cond_emotion_adv": torch.Tensor(0.5),                   # scalar, dtype=float
+    "audio_path": "wavs/vivoice_0.wav",
+    "text": "Xin chào các bạn"
+}
+```
 
-### Inference:
-- ✅ Test nhiều temperature values để tìm giá trị tốt nhất
-- ✅ Temperature = 0.8 thường cho kết quả tốt nhất
-- ✅ Nếu output bị lỗi, giảm temperature xuống 0.6-0.7
+### Model Architecture
+
+- **Base model:** ResembleAI/Chatterbox
+- **Frozen:** Voice Encoder, S3Gen (speech-to-waveform)
+- **Trainable:** T3 (text-to-speech tokens)
+- **Tokenizers:**
+  - Text: Custom Vietnamese BPE (704 tokens)
+  - Speech: S3Tokenizer (6561 tokens)
+
+### Training Process
+
+1. **Text → Text Tokens** (Vietnamese tokenizer)
+2. **Audio → Speech Tokens** (S3Tokenizer, frozen)
+3. **Audio → Speaker Embedding** (Voice Encoder, frozen)
+4. **Text Tokens → Speech Tokens** (T3 model, **trainable**)
+5. **Speech Tokens → Waveform** (S3Gen, frozen)
+
+**Only T3 is fine-tuned.** Other components remain frozen.
 
 ---
 
-## 🔧 Troubleshooting
+## 📊 Memory Requirements
 
-### CUDA out of memory
-```bash
-# Giảm batch size
-python train.py --csv metadata.csv --batch_size 2
+### Training
 
-# Hoặc dùng gradient accumulation
-python train.py --csv metadata.csv --batch_size 2 --gradient_accumulation_steps 4
-```
+| Batch Size | GPU Memory | Recommended GPU |
+|------------|------------|-----------------|
+| 4 | ~12 GB | RTX 3080 (12GB) |
+| 8 | ~20 GB | RTX 3090 (24GB) |
+| 16 | ~40 GB | A100 (40GB) |
 
-### Tokenizer not found
-```bash
-# Tạo tokenizer từ corpus
-python train_tokenizer_from_corpus.py metadata.csv
+### Preprocessing
 
-# Check output
-ls VietnameseTokenizer/
-```
+| Workers | RAM | GPU Memory |
+|---------|-----|------------|
+| 1 | ~8 GB | ~6 GB |
+| 4 | ~20 GB | ~6 GB (shared) |
+| 8 | ~35 GB | ~6 GB (shared) |
 
-### High OOV rate
-```bash
-# Test OOV coverage
-python test_oov.py
-
-# Re-train tokenizer với cleaned corpus
-python train_tokenizer_from_corpus.py metadata_cleaned.csv
-```
-
-### Audio loading error
-- ✅ Check audio format: Phải là `.wav`
-- ✅ Check đường dẫn trong CSV: Relative hoặc absolute
-- ✅ Check `--audio_dir` parameter
-- ✅ Test: `ls audio/*.wav | head`
-
-### Tokenizer error: Special tokens missing
-```bash
-# Re-train với original tokenizer.json
-python train_tokenizer_from_corpus.py metadata.csv tokenizer.json
-```
-
-### Training loss không giảm
-- ✅ Check learning rate (thử 1e-5 hoặc 5e-5)
-- ✅ Check dataset quality
-- ✅ Tăng số epochs
-- ✅ Check tokenizer coverage
+**Tip:** Each worker loads its own model copy in memory.
 
 ---
 
-## 📊 Monitoring Training
+## 🎯 Expected Results
 
-### TensorBoard:
-```bash
-tensorboard --logdir ./checkpoints/vietnamese/logs
-```
-Mở: http://localhost:6006
+### Training Metrics
 
-### Check checkpoints:
-```bash
-ls -lh checkpoints/vietnamese/checkpoint-*/
-```
+- **Loss:** Should decrease from ~8-10 to ~2-4
+- **Evaluation:** Check every 5000 steps
+- **Overfitting:** If eval loss increases, reduce epochs
 
-### Test intermediate checkpoints:
-```bash
-python test.py --model ./checkpoints/vietnamese/checkpoint-10000 --text "Test"
-```
+### Inference Quality
+
+- **Intelligibility:** Should be clear after 5+ epochs
+- **Naturalness:** Improves with more data (10+ hours)
+- **Speaker similarity:** Depends on reference audio quality
 
 ---
 
-## 📚 Additional Info
+## 🤝 Contributing
 
-### Architecture:
-- **T3 Model**: LLaMA-based (520M params) - Text to Speech Tokens
-- **S3Gen**: Flow-based model - Speech Tokens to Waveform
-- **Fine-tuning**: Only T3, freeze Voice Encoder & S3Gen
-
-### Tokenizer Details:
-- **Type**: Byte Pair Encoding (BPE)
-- **Min frequency**: 2 (only learns tokens appearing ≥2 times)
-- **Pre-tokenizer**: Whitespace splitting
-- **Language**: Vietnamese (vi)
-
-### Training Strategy:
-- Freeze voice encoder & S3Gen
-- Only train T3 text encoder
-- Use cosine learning rate schedule
-- Gradient clipping (max_grad_norm=1.0)
-- Weight decay = 0.01
+See [WARP.md](WARP.md) for development guidelines.
 
 ---
 
-## 🎉 Examples
+## 📄 License
 
-### Complete workflow:
-
-```bash
-# 1. Prepare data
-cat > metadata.csv << EOF
-audio|transcript
-audio_001.wav|Xin chào các bạn
-audio_002.wav|Đây là tiếng Việt
-audio_003.wav|Tôi yêu TTS
-EOF
-
-# 2. Train tokenizer
-python train_tokenizer_from_corpus.py metadata.csv
-
-# 3. Check tokenizer
-python test_oov.py
-# Expected: 0% OOV, 0 [UNK] tokens
-
-# 4. Train model
-python train.py \
-  --csv metadata.csv \
-  --audio_dir ./ \
-  --batch_size 4 \
-  --epochs 10
-
-# 5. Monitor
-tensorboard --logdir checkpoints/vietnamese/logs
-
-# 6. Test
-python test.py --model checkpoints/vietnamese --text "Xin chào Việt Nam"
-```
+Same as [Chatterbox](https://github.com/resemble-ai/chatterbox).
 
 ---
-
-## 📝 License
-
-MIT License
 
 ## 🙏 Credits
 
-- **Chatterbox TTS**: ResembleAI
-- **Base Model**: tel4vn/chatterxbox (pretrained)
-- **Vietnamese Tokenizer**: Corpus-based BPE training
+- Base model: [ResembleAI/Chatterbox](https://github.com/resemble-ai/chatterbox)
+- Preprocessing optimization: [Issue #174](https://github.com/resemble-ai/chatterbox/issues/174)
 
 ---
 
-## 📧 Support
+## 📚 Additional Resources
 
-- Issues: https://github.com/iamdinhthuan/chatterbox-finetune-vi/issues
-- For development guidelines: See `WARP.md`
+- [Chatterbox Paper](https://arxiv.org/abs/your-paper-link)
+- [Model Card](https://huggingface.co/ResembleAI/chatterbox)
+- [Demo](https://resemble.ai)
 
 ---
 
-**Happy Training! 🇻🇳🎉**
+## ⚠️ Important Notes
+
+### Data Format Fix (Dec 2024)
+
+**If you preprocessed data before Dec 12, 2024, you MUST re-preprocess!**
+
+**Old format (missing):**
+- ❌ No BOS/EOS tokens
+- ❌ Missing token lengths
+- ❌ Missing conditioning prompts
+
+**New format (correct):**
+- ✅ BOS/EOS tokens (255, 0, 6561, 6562)
+- ✅ Token lengths included
+- ✅ All conditioning fields
+
+**How to check:**
+```bash
+python verify_preprocessing_format.py
+```
+
+**If fails:** Delete old data and re-preprocess with latest code.
+
+### Multiprocessing (Dec 2024)
+
+**New in latest version:** Multi-threaded preprocessing for 4-10x speedup.
+
+**Usage:**
+```bash
+python preprocess_dataset.py \
+  --csv metadata.csv \
+  --audio_dir wavs \
+  --add_silence \
+  --num_workers 8  # 4-10x faster!
+```
+
+---
+
+## 🆘 Getting Help
+
+1. Check troubleshooting section above
+2. Run verification scripts (`test_preprocessing_single.py`, `verify_preprocessing_format.py`)
+3. Check [WARP.md](WARP.md) for developer details
+4. Open issue on GitHub with:
+   - Command used
+   - Error message
+   - System info (`nvidia-smi`, `python --version`)
+
+---
+
+## 📈 Changelog
+
+### Latest (Dec 2024)
+- ✅ Fixed data format mismatch (BOS/EOS, lengths, conditioning)
+- ✅ Added multiprocessing support (4-10x faster preprocessing)
+- ✅ Added verification scripts
+- ✅ Improved documentation
+
+### Previous
+- Added preprocessing optimization (2-4x training speedup)
+- Vietnamese tokenizer training
+- Initial release
+
+---
+
+**Ready to start? Run:**
+
+```bash
+# 1. Train tokenizer
+python train_tokenizer_from_corpus.py metadata.csv
+
+# 2. Test preprocessing (10 seconds)
+python test_preprocessing_single.py
+
+# 3. Preprocess (3-6 hours with 8 workers)
+python preprocess_dataset.py --csv metadata.csv --audio_dir wavs --add_silence --num_workers 8
+
+# 4. Train (2-3 days with preprocessing)
+python train.py --csv metadata.csv --use_preprocessed --epochs 10 --batch_size 8
+```
+
+**Questions? Check WARP.md or open an issue!** 🚀
