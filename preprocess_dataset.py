@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from chatterbox.tts import ChatterboxTTS, punc_norm
 from chatterbox.models.s3tokenizer import S3_SR  # S3_SR = 16kHz for speech tokenizer
+from chatterbox.models.t3.modules.t3_config import T3Config
 
 logging.basicConfig(
     level=logging.INFO,
@@ -52,6 +53,7 @@ def preprocess_sample(
     text_tokenizer,
     speech_tokenizer,
     voice_encoder,
+    t3_config: T3Config,
     max_text_len: int,
     max_speech_len: int,
     audio_prompt_duration_s: float,
@@ -76,29 +78,42 @@ def preprocess_sample(
         # Create tensor: 1D for S3Tokenizer
         wav_tensor_1d = torch.from_numpy(wav).float()  # [T] for S3Tokenizer
         
-        # 2. Tokenize text
+        # 2. Tokenize text and add BOS/EOS
         text_normalized = punc_norm(text)
-        text_tokens = text_tokenizer.encode(text_normalized).ids
+        raw_text_tokens = text_tokenizer.encode(text_normalized).ids
         
+        # Add BOS (255) and EOS (0) tokens
+        text_tokens = [t3_config.start_text_token] + raw_text_tokens + [t3_config.stop_text_token]
+        
+        # Truncate if too long (keep EOS)
         if len(text_tokens) > max_text_len:
-            logger.warning(f"Text too long ({len(text_tokens)} > {max_text_len}): {audio_path}")
-            return None
+            text_tokens = text_tokens[:max_text_len-1] + [t3_config.stop_text_token]
         
         text_tensor = torch.tensor(text_tokens, dtype=torch.long)
+        text_token_len = len(text_tokens)
         
-        # 3. Speech tokenization (S3Tokenizer expects list of 1D tensors)
+        # 3. Speech tokenization and add BOS/EOS
         with torch.no_grad():
             device = next(speech_tokenizer.parameters()).device
             wav_1d_device = wav_tensor_1d.to(device)
             # Pass as list of 1D tensors, S3Tokenizer will add batch dim internally
-            speech_tokens_batch, speech_lengths = speech_tokenizer.forward([wav_1d_device])
-            speech_tokens = speech_tokens_batch[0].cpu()  # Get first item from batch, move to CPU
+            raw_speech_tokens_batch, speech_lengths_batch = speech_tokenizer.forward([wav_1d_device])
+            raw_speech_tokens = raw_speech_tokens_batch[0].cpu()[:speech_lengths_batch[0].item()]
         
-        if speech_tokens.shape[0] > max_speech_len:
-            logger.warning(f"Speech too long ({speech_tokens.shape[0]} > {max_speech_len}): {audio_path}")
-            return None
+        # Add BOS (6561) and EOS (6562) tokens
+        speech_tokens = torch.cat([
+            torch.tensor([t3_config.start_speech_token], dtype=torch.long),
+            raw_speech_tokens,
+            torch.tensor([t3_config.stop_speech_token], dtype=torch.long)
+        ])
         
-        # 4. Voice encoding (for prompt, use embeds_from_wavs which handles mel-spectrogram conversion)
+        # Truncate if too long (keep EOS)
+        if len(speech_tokens) > max_speech_len:
+            speech_tokens = torch.cat([speech_tokens[:max_speech_len-1], torch.tensor([t3_config.stop_speech_token])])
+        
+        speech_token_len = len(speech_tokens)
+        
+        # 4. Voice encoding for speaker conditioning
         prompt_len = int(audio_prompt_duration_s * S3_SR)
         if len(wav) >= prompt_len:
             prompt_wav_np = wav[:prompt_len]
@@ -109,14 +124,41 @@ def preprocess_sample(
         
         with torch.no_grad():
             # Use embeds_from_wavs which internally converts to mel-spectrograms
-            voice_emb_np = voice_encoder.embeds_from_wavs([prompt_wav_np], sample_rate=S3_SR)
-            voice_emb = torch.from_numpy(voice_emb_np)  # [1, D]
+            speaker_emb_np = voice_encoder.embeds_from_wavs([prompt_wav_np], sample_rate=S3_SR)
+            speaker_emb = torch.from_numpy(speaker_emb_np[0])  # [D]
         
-        # 5. Return preprocessed data
+        # 5. Extract conditioning prompt speech tokens from beginning of audio
+        cond_prompt_len = t3_config.speech_cond_prompt_len
+        cond_audio_samples = int(audio_prompt_duration_s * S3_SR)
+        cond_audio_segment = wav[:cond_audio_samples] if len(wav) >= cond_audio_samples else wav
+        
+        with torch.no_grad():
+            if len(cond_audio_segment) > 0:
+                cond_wav_tensor = torch.from_numpy(cond_audio_segment).float().to(device)
+                cond_prompt_tokens_batch, _ = speech_tokenizer.forward([cond_wav_tensor], max_len=cond_prompt_len)
+                cond_prompt_speech_tokens = cond_prompt_tokens_batch[0].cpu()
+            else:
+                cond_prompt_speech_tokens = torch.zeros(cond_prompt_len, dtype=torch.long)
+        
+        # Ensure correct length
+        if cond_prompt_speech_tokens.shape[0] < cond_prompt_len:
+            pad_len = cond_prompt_len - cond_prompt_speech_tokens.shape[0]
+            cond_prompt_speech_tokens = torch.nn.functional.pad(cond_prompt_speech_tokens, (0, pad_len), value=0)
+        elif cond_prompt_speech_tokens.shape[0] > cond_prompt_len:
+            cond_prompt_speech_tokens = cond_prompt_speech_tokens[:cond_prompt_len]
+        
+        # 6. Emotion adversarial scalar (default from training code)
+        emotion_adv_scalar = torch.tensor(0.5, dtype=torch.float)
+        
+        # 7. Return preprocessed data in training-compatible format
         return {
             "text_tokens": text_tensor,
+            "text_token_lens": torch.tensor(text_token_len, dtype=torch.long),
             "speech_tokens": speech_tokens,
-            "voice_emb": voice_emb.squeeze(0),  # [D]
+            "speech_token_lens": torch.tensor(speech_token_len, dtype=torch.long),
+            "t3_cond_speaker_emb": speaker_emb,
+            "t3_cond_prompt_speech_tokens": cond_prompt_speech_tokens,
+            "t3_cond_emotion_adv": emotion_adv_scalar,
             "audio_path": str(audio_path),
             "text": text,
         }
@@ -220,6 +262,9 @@ def main():
         voice_encoder = tts.ve
         voice_encoder.eval()
         
+        # Get T3 config for BOS/EOS tokens
+        t3_config = tts.t3.hp
+        
         logger.info("✅ Model components loaded")
         
     except Exception as e:
@@ -276,6 +321,7 @@ def main():
             text_tokenizer=text_tokenizer,
             speech_tokenizer=speech_tokenizer,
             voice_encoder=voice_encoder,
+            t3_config=t3_config,
             max_text_len=args.max_text_len,
             max_speech_len=args.max_speech_len,
             audio_prompt_duration_s=args.audio_prompt_duration,

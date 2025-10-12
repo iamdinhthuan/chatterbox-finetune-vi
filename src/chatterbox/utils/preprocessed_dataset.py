@@ -71,7 +71,8 @@ class PreprocessedDataset(Dataset):
 
 def collate_fn_preprocessed(batch):
     """
-    Collate function for preprocessed dataset
+    Collate function for preprocessed dataset.
+    Returns format compatible with T3 training.
     """
     # Filter out None samples
     batch = [item for item in batch if item is not None]
@@ -79,45 +80,15 @@ def collate_fn_preprocessed(batch):
     if len(batch) == 0:
         return None
     
-    # Get max lengths in batch
-    max_text_len = max(item['text_tokens'].shape[0] for item in batch)
-    max_speech_len = max(item['speech_tokens'].shape[0] for item in batch)
-    
-    # Pad and stack
-    text_tokens_list = []
-    speech_tokens_list = []
-    voice_emb_list = []
-    text_lengths = []
-    speech_lengths = []
-    
-    for item in batch:
-        # Text tokens
-        text_len = item['text_tokens'].shape[0]
-        text_tokens_padded = torch.nn.functional.pad(
-            item['text_tokens'], 
-            (0, max_text_len - text_len), 
-            value=0
-        )
-        text_tokens_list.append(text_tokens_padded)
-        text_lengths.append(text_len)
-        
-        # Speech tokens
-        speech_len = item['speech_tokens'].shape[0]
-        speech_tokens_padded = torch.nn.functional.pad(
-            item['speech_tokens'],
-            (0, max_speech_len - speech_len),
-            value=0
-        )
-        speech_tokens_list.append(speech_tokens_padded)
-        speech_lengths.append(speech_len)
-        
-        # Voice embeddings (no padding needed)
-        voice_emb_list.append(item['voice_emb'])
+    # Preprocessed data already has correct format, just stack tensors
+    # No padding needed because dataloader will handle variable lengths
     
     return {
-        'text_tokens': torch.stack(text_tokens_list),
-        'speech_tokens': torch.stack(speech_tokens_list),
-        'voice_emb': torch.stack(voice_emb_list),
-        'text_lengths': torch.tensor(text_lengths, dtype=torch.long),
-        'speech_lengths': torch.tensor(speech_lengths, dtype=torch.long),
+        'text_tokens': torch.stack([item['text_tokens'] for item in batch]),
+        'text_token_lens': torch.stack([item['text_token_lens'] for item in batch]),
+        'speech_tokens': torch.stack([item['speech_tokens'] for item in batch]),
+        'speech_token_lens': torch.stack([item['speech_token_lens'] for item in batch]),
+        't3_cond_speaker_emb': torch.stack([item['t3_cond_speaker_emb'] for item in batch]),
+        't3_cond_prompt_speech_tokens': torch.stack([item['t3_cond_prompt_speech_tokens'] for item in batch]),
+        't3_cond_emotion_adv': torch.stack([item['t3_cond_emotion_adv'] for item in batch]),
     }
