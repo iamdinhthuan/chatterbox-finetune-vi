@@ -58,7 +58,7 @@ def preprocess_sample(
     max_speech_len: int,
     audio_prompt_duration_s: float,
     add_silence: bool = True,
-    silence_padding_ms: int = 300,
+    silence_padding_ms: int = 500,
 ) -> Optional[Dict]:
     """
     Preprocess single sample: load audio, tokenize, encode
@@ -178,7 +178,7 @@ def main():
     parser.add_argument("--max_speech_len", type=int, default=1200, help="Max speech length")
     parser.add_argument("--audio_prompt_duration", type=float, default=3.0, help="Audio prompt duration (seconds)")
     parser.add_argument("--add_silence", action="store_true", help="Add 300ms silence padding (recommended)")
-    parser.add_argument("--silence_padding_ms", type=int, default=300, help="Silence padding in ms")
+    parser.add_argument("--silence_padding_ms", type=int, default=500, help="Silence padding in ms")
     
     args = parser.parse_args()
     
@@ -297,49 +297,126 @@ def main():
     logger.info("\nPreprocessing samples...")
     logger.info("This will take a while, but only needs to be done once!")
     
+    num_workers = args.num_workers
+    logger.info(f"Using {num_workers} workers for parallel processing")
+    
     successful = 0
     failed = 0
-    sample_list = []  # Track successful samples for metadata
+    sample_list = []
     
-    for idx, sample in enumerate(tqdm(samples, desc="Preprocessing")):
-        output_file = output_dir / f"sample_{idx:06d}.pt"
+    if num_workers == 1:
+        # Single-threaded (original code)
+        for idx, sample in enumerate(tqdm(samples, desc="Preprocessing")):
+            output_file = output_dir / f"sample_{idx:06d}.pt"
+            
+            if output_file.exists():
+                successful += 1
+                sample_list.append({
+                    "idx": idx,
+                    "pt_file": f"sample_{idx:06d}.pt",
+                    "audio_path": str(sample["audio_path"]),
+                    "text": sample["text"]
+                })
+                continue
+            
+            preprocessed = preprocess_sample(
+                audio_path=sample["audio_path"],
+                text=sample["text"],
+                text_tokenizer=text_tokenizer,
+                speech_tokenizer=speech_tokenizer,
+                voice_encoder=voice_encoder,
+                t3_config=t3_config,
+                max_text_len=args.max_text_len,
+                max_speech_len=args.max_speech_len,
+                audio_prompt_duration_s=args.audio_prompt_duration,
+                add_silence=args.add_silence,
+                silence_padding_ms=args.silence_padding_ms,
+            )
+            
+            if preprocessed is not None:
+                torch.save(preprocessed, output_file)
+                successful += 1
+                sample_list.append({
+                    "idx": idx,
+                    "pt_file": f"sample_{idx:06d}.pt",
+                    "audio_path": str(sample["audio_path"]),
+                    "text": sample["text"]
+                })
+            else:
+                failed += 1
+    
+    else:
+        # Multi-processing
+        mp.set_start_method('spawn', force=True)
         
-        if output_file.exists():
-            # Skip if already preprocessed
-            successful += 1
-            sample_list.append({
-                "idx": idx,
-                "pt_file": f"sample_{idx:06d}.pt",
-                "audio_path": str(sample["audio_path"]),
-                "text": sample["text"]
-            })
-            continue
+        # Create queues
+        samples_queue = Queue(maxsize=num_workers * 2)
+        result_queue = Queue()
         
-        preprocessed = preprocess_sample(
-            audio_path=sample["audio_path"],
-            text=sample["text"],
-            text_tokenizer=text_tokenizer,
-            speech_tokenizer=speech_tokenizer,
-            voice_encoder=voice_encoder,
-            t3_config=t3_config,
-            max_text_len=args.max_text_len,
-            max_speech_len=args.max_speech_len,
-            audio_prompt_duration_s=args.audio_prompt_duration,
-            add_silence=args.add_silence,
-            silence_padding_ms=args.silence_padding_ms,
-        )
+        # Start workers
+        workers = []
+        for worker_id in range(num_workers):
+            p = mp.Process(
+                target=worker_process,
+                args=(worker_id, samples_queue, result_queue, model_dir, tokenizer_path, args)
+            )
+            p.start()
+            workers.append(p)
         
-        if preprocessed is not None:
-            torch.save(preprocessed, output_file)
-            successful += 1
-            sample_list.append({
-                "idx": idx,
-                "pt_file": f"sample_{idx:06d}.pt",
-                "audio_path": str(sample["audio_path"]),
-                "text": sample["text"]
-            })
-        else:
-            failed += 1
+        # Filter unprocessed samples
+        unprocessed_samples = []
+        for idx, sample in enumerate(samples):
+            output_file = output_dir / f"sample_{idx:06d}.pt"
+            if output_file.exists():
+                successful += 1
+                sample_list.append({
+                    "idx": idx,
+                    "pt_file": f"sample_{idx:06d}.pt",
+                    "audio_path": str(sample["audio_path"]),
+                    "text": sample["text"]
+                })
+            else:
+                unprocessed_samples.append((idx, sample))
+        
+        # Enqueue unprocessed samples
+        for item in unprocessed_samples:
+            samples_queue.put(item)
+        
+        # Send poison pills
+        for _ in range(num_workers):
+            samples_queue.put(None)
+        
+        # Collect results with progress bar
+        pbar = tqdm(total=len(unprocessed_samples), desc="Preprocessing")
+        processed_count = 0
+        
+        while processed_count < len(unprocessed_samples):
+            idx, preprocessed, sample = result_queue.get()
+            
+            output_file = output_dir / f"sample_{idx:06d}.pt"
+            
+            if preprocessed is not None:
+                torch.save(preprocessed, output_file)
+                successful += 1
+                sample_list.append({
+                    "idx": idx,
+                    "pt_file": f"sample_{idx:06d}.pt",
+                    "audio_path": str(sample["audio_path"]),
+                    "text": sample["text"]
+                })
+            else:
+                failed += 1
+            
+            processed_count += 1
+            pbar.update(1)
+        
+        pbar.close()
+        
+        # Wait for workers
+        for p in workers:
+            p.join()
+        
+        logger.info(f"All workers finished")
     
     # Save metadata
     metadata = {
