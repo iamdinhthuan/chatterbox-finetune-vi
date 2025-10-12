@@ -16,6 +16,8 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional
 import sys
+import torch.multiprocessing as mp
+from multiprocessing import Queue
 
 import torch
 import torch.nn.functional as F
@@ -168,6 +170,68 @@ def preprocess_sample(
         return None
 
 
+def worker_process(
+    worker_id: int,
+    samples_queue: Queue,
+    result_queue: Queue,
+    model_dir: Path,
+    tokenizer_path: Path,
+    args
+):
+    """
+    Worker process for parallel preprocessing
+    Each worker loads its own models to avoid CUDA issues
+    """
+    try:
+        # Determine device for this worker
+        if torch.cuda.is_available():
+            device = f"cuda:{worker_id % torch.cuda.device_count()}"
+        else:
+            device = "cpu"
+        
+        from tokenizers import Tokenizer
+        text_tokenizer = Tokenizer.from_file(str(tokenizer_path))
+        
+        # Load ChatterboxTTS for this worker
+        tts = ChatterboxTTS.from_local(ckpt_dir=str(model_dir), device=device)
+        speech_tokenizer = tts.s3gen.tokenizer
+        voice_encoder = tts.ve
+        voice_encoder.eval()
+        t3_config = tts.t3.hp
+        
+        # Process samples from queue
+        while True:
+            item = samples_queue.get()
+            if item is None:  # Poison pill to stop worker
+                break
+            
+            idx, sample = item
+            
+            try:
+                preprocessed = preprocess_sample(
+                    audio_path=sample["audio_path"],
+                    text=sample["text"],
+                    text_tokenizer=text_tokenizer,
+                    speech_tokenizer=speech_tokenizer,
+                    voice_encoder=voice_encoder,
+                    t3_config=t3_config,
+                    max_text_len=args.max_text_len,
+                    max_speech_len=args.max_speech_len,
+                    audio_prompt_duration_s=args.audio_prompt_duration,
+                    add_silence=args.add_silence,
+                    silence_padding_ms=args.silence_padding_ms,
+                )
+                
+                result_queue.put((idx, preprocessed, sample))
+                
+            except Exception as e:
+                # If error, return None for this sample
+                result_queue.put((idx, None, sample))
+                
+    except Exception as e:
+        print(f"Worker {worker_id} fatal error: {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Preprocess dataset for faster training")
     parser.add_argument("--csv", type=str, required=True, help="Path to metadata.csv")
@@ -179,6 +243,7 @@ def main():
     parser.add_argument("--audio_prompt_duration", type=float, default=3.0, help="Audio prompt duration (seconds)")
     parser.add_argument("--add_silence", action="store_true", help="Add 300ms silence padding (recommended)")
     parser.add_argument("--silence_padding_ms", type=int, default=500, help="Silence padding in ms")
+    parser.add_argument("--num_workers", type=int, default=1, help="Number of parallel workers (default: 1, recommend: 4-8 for faster processing)")
     
     args = parser.parse_args()
     
