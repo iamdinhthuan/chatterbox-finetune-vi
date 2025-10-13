@@ -94,8 +94,12 @@ def check_model_initialization():
             
             # Check if T3 can do forward pass
             logger.info(f"\n🧪 Testing T3 forward pass with dummy tokens...")
-            dummy_text_tokens = torch.randint(0, 704, (1, 50)).to(device)
-            dummy_speech_tokens = torch.randint(0, 6563, (1, 150)).to(device)
+            text_len = 50
+            speech_len = 150
+            dummy_text_tokens = torch.randint(0, 704, (1, text_len)).to(device)
+            dummy_speech_tokens = torch.randint(0, 6563, (1, speech_len)).to(device)
+            dummy_text_lens = torch.tensor([text_len]).to(device)
+            dummy_speech_lens = torch.tensor([speech_len]).to(device)
             
             from chatterbox.models.t3.t3 import T3Cond
             dummy_cond = T3Cond(
@@ -105,12 +109,17 @@ def check_model_initialization():
             )
             
             with torch.no_grad():
-                # T3.forward expects a dict with specific keys
-                logits = model.t3(
+                # T3.forward expects keyword arguments
+                output = model.t3(
+                    t3_cond=dummy_cond,
                     text_tokens=dummy_text_tokens,
+                    text_token_lens=dummy_text_lens,
                     speech_tokens=dummy_speech_tokens,
-                    cond=dummy_cond
+                    speech_token_lens=dummy_speech_lens,
+                    training=False
                 )
+            
+            logits = output.speech_logits  # Extract speech logits from output
             
             logger.info(f"\n📤 T3 forward pass result:")
             logger.info(f"  Output shape: {logits.shape}")
