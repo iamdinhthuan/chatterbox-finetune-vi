@@ -84,7 +84,7 @@ def check_model_initialization():
         
         try:
             with torch.no_grad():
-                wav = model.text_to_speech(test_text)
+                wav = model(test_text)  # ChatterboxTTS uses __call__
             
             logger.info(f"\n📤 TTS inference result:")
             logger.info(f"  Output shape: {wav.shape}")
@@ -99,6 +99,8 @@ def check_model_initialization():
                 logger.error(f"\n❌ CRITICAL: TTS output contains Inf!")
             else:
                 logger.info(f"\n✅ TTS inference works! Model is properly loaded.")
+                logger.info(f"\n🎉 CONCLUSION: Pretrained model loads and works correctly!")
+                logger.info(f"The 48% NaN issue is likely in TRAINING CODE, not model weights.")
                 
         except Exception as e:
             logger.error(f"\n❌ TTS inference failed: {e}")
