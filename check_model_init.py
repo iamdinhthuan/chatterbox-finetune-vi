@@ -34,10 +34,7 @@ def check_model_initialization():
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         logger.info(f"Device: {device}")
         
-        model = ChatterboxTTS.from_pretrained(
-            device=device,
-            cache_dir="./.cache"
-        )
+        model = ChatterboxTTS.from_pretrained(device=device)
         
         logger.info(f"Model loaded successfully")
         
