@@ -821,9 +821,33 @@ class SafeCheckpointTrainer(Trainer):
             if torch.isnan(loss) or torch.isinf(loss):
                 if not hasattr(self, '_nan_count'):
                     self._nan_count = 0
+                    self._nan_samples = []
                 self._nan_count += 1
+                
+                # Log detailed info for first 10 NaN samples
                 if self._nan_count <= 10:
-                    logger.warning(f"Skipping NaN/Inf loss in evaluation batch (total skipped: {self._nan_count})")
+                    # Extract sample info
+                    text_len = inputs.get('text_token_lens', torch.tensor(0)).item() if 'text_token_lens' in inputs else 0
+                    speech_len = inputs.get('speech_token_lens', torch.tensor(0)).item() if 'speech_token_lens' in inputs else 0
+                    audio_path = inputs.get('audio_path', ['unknown'])[0] if 'audio_path' in inputs else 'unknown'
+                    text = inputs.get('text', [''])[0] if 'text' in inputs else ''
+                    
+                    logger.warning(
+                        f"⚠️ NaN/Inf loss #{self._nan_count}:\n"
+                        f"  Audio: {audio_path}\n"
+                        f"  Text: {text[:100]}...\n"
+                        f"  Text tokens: {text_len}\n"
+                        f"  Speech tokens: {speech_len}\n"
+                        f"  Loss value: {loss.item()}"
+                    )
+                    
+                    self._nan_samples.append({
+                        'audio_path': audio_path,
+                        'text_len': text_len,
+                        'speech_len': speech_len,
+                        'loss': loss.item()
+                    })
+                
                 loss = None  # Return None so Trainer skips this batch
         
         if prediction_loss_only:
@@ -835,6 +859,50 @@ class SafeCheckpointTrainer(Trainer):
         
         # Return (loss, logits, labels)
         return (loss, logits, None)
+    
+    def evaluate(self, *args, **kwargs):
+        """Override evaluate to log NaN summary after evaluation"""
+        # Reset NaN counter before evaluation
+        if hasattr(self, '_nan_count'):
+            old_nan_count = self._nan_count
+            old_nan_samples = getattr(self, '_nan_samples', [])
+            self._nan_count = 0
+            self._nan_samples = []
+        
+        # Run evaluation
+        result = super().evaluate(*args, **kwargs)
+        
+        # Log summary after evaluation
+        if hasattr(self, '_nan_count') and self._nan_count > 0:
+            logger.warning(
+                f"\n{'='*60}\n"
+                f"📊 EVALUATION SUMMARY:\n"
+                f"  Total NaN/Inf batches: {self._nan_count}\n"
+                f"  Evaluation dataset size: {len(self.eval_dataset)}\n"
+                f"  NaN ratio: {self._nan_count / len(self.eval_dataset) * 100:.2f}%\n"
+            )
+            
+            if self._nan_samples:
+                logger.warning("🔍 Sample NaN cases (first 10):")
+                for i, sample in enumerate(self._nan_samples[:10], 1):
+                    logger.warning(
+                        f"  {i}. {sample['audio_path']}\n"
+                        f"     Text len: {sample['text_len']}, Speech len: {sample['speech_len']}"
+                    )
+                
+                # Analyze patterns
+                if len(self._nan_samples) >= 3:
+                    avg_text_len = sum(s['text_len'] for s in self._nan_samples) / len(self._nan_samples)
+                    avg_speech_len = sum(s['speech_len'] for s in self._nan_samples) / len(self._nan_samples)
+                    logger.warning(
+                        f"\n📈 PATTERN ANALYSIS:\n"
+                        f"  Avg text len in NaN samples: {avg_text_len:.1f}\n"
+                        f"  Avg speech len in NaN samples: {avg_speech_len:.1f}\n"
+                    )
+            
+            logger.warning(f"{'='*60}\n")
+        
+        return result
     
     def _load_rng_state(self, checkpoint):
         """Override to handle weights_only loading issues"""
