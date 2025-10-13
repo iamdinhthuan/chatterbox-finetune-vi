@@ -48,8 +48,8 @@ def test_single_sample(sample_idx=2578573):
     # Load model
     logger.info(f"\n🔧 Loading model...")
     try:
-        from src.chatterbox.models.t3.t3_for_causal_lm import ChatterboxT3ForCausalLM
-        from src.chatterbox.models.t3.t3_config import T3Config
+        from chatterbox.models.t3.t3_for_causal_lm import ChatterboxT3ForCausalLM
+        from chatterbox.models.t3.t3_config import T3Config
         from huggingface_hub import hf_hub_download
         
         # Download config
@@ -161,8 +161,8 @@ def test_batch_samples(num_samples=10):
     # Load model once
     logger.info(f"Loading model...")
     try:
-        from src.chatterbox.models.t3.t3_for_causal_lm import ChatterboxT3ForCausalLM
-        from src.chatterbox.models.t3.t3_config import T3Config
+        from chatterbox.models.t3.t3_for_causal_lm import ChatterboxT3ForCausalLM
+        from chatterbox.models.t3.t3_config import T3Config
         from huggingface_hub import hf_hub_download
         
         config_path = hf_hub_download(
