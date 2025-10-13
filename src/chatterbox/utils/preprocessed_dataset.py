@@ -88,6 +88,11 @@ def collate_fn_preprocessed(batch):
     """
     Collate function for preprocessed dataset.
     Returns format compatible with T3 training.
+    
+    Creates labels for next-token prediction:
+    - labels_text: text_tokens shifted by 1 (predict tokens 1..EOS from BOS..N-1)
+    - labels_speech: speech_tokens shifted by 1
+    - Padding positions masked with -100
     """
     # Filter out None samples
     batch = [item for item in batch if item is not None]
@@ -95,15 +100,45 @@ def collate_fn_preprocessed(batch):
     if len(batch) == 0:
         return None
     
-    # Preprocessed data already has correct format, just stack tensors
-    # No padding needed because dataloader will handle variable lengths
+    # Stack tensors
+    text_tokens = torch.stack([item['text_tokens'] for item in batch])
+    text_token_lens = torch.stack([item['text_token_lens'] for item in batch])
+    speech_tokens = torch.stack([item['speech_tokens'] for item in batch])
+    speech_token_lens = torch.stack([item['speech_token_lens'] for item in batch])
+    
+    # Create labels for next-token prediction
+    # Labels are tokens[1:] with padding masked to -100
+    IGNORE_ID = -100
+    
+    # Text labels: predict tokens 1..EOS from inputs BOS..N-1
+    labels_text = text_tokens[:, 1:].clone()  # (B, S-1)
+    # Mask padding positions
+    text_max_len = text_tokens.size(1) - 1
+    for i in range(len(batch)):
+        actual_len = text_token_lens[i].item()
+        if actual_len > 1:  # Need at least BOS + 1 token
+            # Mask positions after EOS
+            labels_text[i, actual_len-1:] = IGNORE_ID
+    
+    # Speech labels: predict tokens 1..EOS from inputs BOS..N-1  
+    labels_speech = speech_tokens[:, 1:].clone()  # (B, S-1)
+    # Mask padding positions
+    speech_max_len = speech_tokens.size(1) - 1
+    for i in range(len(batch)):
+        actual_len = speech_token_lens[i].item()
+        if actual_len > 1:  # Need at least BOS + 1 token
+            # Mask positions after EOS
+            labels_speech[i, actual_len-1:] = IGNORE_ID
     
     return {
-        'text_tokens': torch.stack([item['text_tokens'] for item in batch]),
-        'text_token_lens': torch.stack([item['text_token_lens'] for item in batch]),
-        'speech_tokens': torch.stack([item['speech_tokens'] for item in batch]),
-        'speech_token_lens': torch.stack([item['speech_token_lens'] for item in batch]),
+        'text_tokens': text_tokens,
+        'text_token_lens': text_token_lens,
+        'speech_tokens': speech_tokens,
+        'speech_token_lens': speech_token_lens,
         't3_cond_speaker_emb': torch.stack([item['t3_cond_speaker_emb'] for item in batch]),
         't3_cond_prompt_speech_tokens': torch.stack([item['t3_cond_prompt_speech_tokens'] for item in batch]),
         't3_cond_emotion_adv': torch.stack([item['t3_cond_emotion_adv'] for item in batch]),
+        'labels_text': labels_text,        # ✅ Added!
+        'labels_speech': labels_speech,    # ✅ Added!
+        'labels': labels_speech,           # For Trainer compatibility
     }
