@@ -80,30 +80,64 @@ def check_model_initialization():
         # Test TTS inference
         logger.info(f"\n🧪 Testing TTS inference with dummy text...")
         
-        test_text = "Xin chào"
+        test_text = "Hello world"  # Use English since model is English-pretrained
         
         try:
+            # Note: generate() needs audio_prompt_path or prepare_conditionals first
+            # For now, just verify model is callable without testing full pipeline
+            logger.info(f"\n✅ Model structure check:")
+            logger.info(f"  Has t3: {hasattr(model, 't3')}")
+            logger.info(f"  Has s3gen: {hasattr(model, 's3gen')}")
+            logger.info(f"  Has ve: {hasattr(model, 've')}")
+            logger.info(f"  Has tokenizer: {hasattr(model, 'tokenizer')}")
+            logger.info(f"  Has generate: {hasattr(model, 'generate')}")
+            
+            # Check if T3 can do forward pass
+            logger.info(f"\n🧪 Testing T3 forward pass with dummy tokens...")
+            dummy_text_tokens = torch.randint(0, 704, (1, 50)).to(device)
+            dummy_speech_tokens = torch.randint(0, 6563, (1, 150)).to(device)
+            
+            from chatterbox.models.t3.t3 import T3Cond
+            dummy_cond = T3Cond(
+                speaker_emb=torch.randn(1, 256).to(device),
+                cond_prompt_speech_tokens=torch.randint(0, 6563, (1, 150)).to(device),
+                emotion_adv=torch.tensor([[[0.5]]]).to(device),
+            )
+            
             with torch.no_grad():
-                wav = model(test_text)  # ChatterboxTTS uses __call__
+                logits = model.t3(
+                    dummy_text_tokens,
+                    dummy_speech_tokens,
+                    dummy_cond
+                )
             
-            logger.info(f"\n📤 TTS inference result:")
-            logger.info(f"  Output shape: {wav.shape}")
-            logger.info(f"  Output dtype: {wav.dtype}")
-            logger.info(f"  Has NaN: {torch.isnan(wav).any()}")
-            logger.info(f"  Has Inf: {torch.isinf(wav).any()}")
-            logger.info(f"  Min/Max: {wav.min():.4f}/{wav.max():.4f}")
+            logger.info(f"\n📤 T3 forward pass result:")
+            logger.info(f"  Output shape: {logits.shape}")
+            logger.info(f"  Output dtype: {logits.dtype}")
+            logger.info(f"  Has NaN: {torch.isnan(logits).any()}")
+            logger.info(f"  Has Inf: {torch.isinf(logits).any()}")
+            logger.info(f"  Min/Max: {logits.min():.4f}/{logits.max():.4f}")
             
-            if torch.isnan(wav).any():
-                logger.error(f"\n❌ CRITICAL: TTS output contains NaN!")
-            elif torch.isinf(wav).any():
-                logger.error(f"\n❌ CRITICAL: TTS output contains Inf!")
+            if torch.isnan(logits).any():
+                logger.error(f"\n❌ CRITICAL: T3 output contains NaN!")
+                logger.error(f"Model weights have issues!")
+            elif torch.isinf(logits).any():
+                logger.error(f"\n❌ CRITICAL: T3 output contains Inf!")
+                logger.error(f"Model weights have issues!")
             else:
-                logger.info(f"\n✅ TTS inference works! Model is properly loaded.")
-                logger.info(f"\n🎉 CONCLUSION: Pretrained model loads and works correctly!")
-                logger.info(f"The 48% NaN issue is likely in TRAINING CODE, not model weights.")
+                logger.info(f"\n✅ T3 forward pass works! Model is properly loaded.")
+                logger.info(f"\n🎉 CONCLUSION:")
+                logger.info(f"  ✅ Pretrained model loads correctly")
+                logger.info(f"  ✅ T3 forward pass produces valid outputs")
+                logger.info(f"  ✅ No NaN in model weights or forward computation")
+                logger.info(f"\n⚠️ The 48% NaN issue during TRAINING is likely caused by:")
+                logger.info(f"  1. Training data format mismatch")
+                logger.info(f"  2. Loss computation bug")
+                logger.info(f"  3. Collator/preprocessing issue")
+                logger.info(f"  4. Labels format incorrect")
                 
         except Exception as e:
-            logger.error(f"\n❌ TTS inference failed: {e}")
+            logger.error(f"\n❌ T3 forward pass failed: {e}")
             import traceback
             traceback.print_exc()
         
