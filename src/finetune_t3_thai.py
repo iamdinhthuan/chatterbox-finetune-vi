@@ -826,19 +826,27 @@ class SafeCheckpointTrainer(Trainer):
                 
                 # Log detailed info for first 10 NaN samples
                 if self._nan_count <= 10:
-                    # Extract sample info
-                    text_len = inputs.get('text_token_lens', torch.tensor(0)).item() if 'text_token_lens' in inputs else 0
-                    speech_len = inputs.get('speech_token_lens', torch.tensor(0)).item() if 'speech_token_lens' in inputs else 0
-                    audio_path = inputs.get('audio_path', ['unknown'])[0] if 'audio_path' in inputs else 'unknown'
-                    text = inputs.get('text', [''])[0] if 'text' in inputs else ''
+                    # Extract sample info - handle both tensor and scalar
+                    text_len = inputs.get('text_token_lens', torch.tensor(0))
+                    if isinstance(text_len, torch.Tensor):
+                        text_len = text_len.item() if text_len.numel() == 1 else text_len[0].item()
+                    
+                    speech_len = inputs.get('speech_token_lens', torch.tensor(0))
+                    if isinstance(speech_len, torch.Tensor):
+                        speech_len = speech_len.item() if speech_len.numel() == 1 else speech_len[0].item()
+                    
+                    # audio_path and text might not be in inputs (not passed by collator)
+                    # Try to extract from batch if available
+                    audio_path = 'unknown (not in batch)'
+                    text = 'N/A (not in batch)'
                     
                     logger.warning(
                         f"⚠️ NaN/Inf loss #{self._nan_count}:\n"
                         f"  Audio: {audio_path}\n"
-                        f"  Text: {text[:100]}...\n"
+                        f"  Text: {text}\n"
                         f"  Text tokens: {text_len}\n"
                         f"  Speech tokens: {speech_len}\n"
-                        f"  Loss value: {loss.item()}"
+                        f"  Loss value: {loss.item() if isinstance(loss, torch.Tensor) else loss}"
                     )
                     
                     self._nan_samples.append({
