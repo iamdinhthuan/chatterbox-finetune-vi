@@ -94,10 +94,31 @@ def check_model_initialization():
             
             # Check if T3 can do forward pass
             logger.info(f"\n🧪 Testing T3 forward pass with dummy tokens...")
+            
+            # Get special token IDs from T3 config
+            start_text_token = 255  # BOS for text
+            stop_text_token = 0     # EOS for text
+            start_speech_token = 6561  # BOS for speech
+            stop_speech_token = 6562   # EOS for speech
+            
             text_len = 50
             speech_len = 150
-            dummy_text_tokens = torch.randint(0, 704, (1, text_len)).to(device)
-            dummy_speech_tokens = torch.randint(0, 6563, (1, speech_len)).to(device)
+            
+            # Create dummy tokens WITH BOS/EOS
+            dummy_text_tokens = torch.randint(1, 704, (1, text_len - 2)).to(device)
+            dummy_text_tokens = torch.cat([
+                torch.tensor([[start_text_token]]).to(device),
+                dummy_text_tokens,
+                torch.tensor([[stop_text_token]]).to(device)
+            ], dim=1)
+            
+            dummy_speech_tokens = torch.randint(1, 6560, (1, speech_len - 2)).to(device)
+            dummy_speech_tokens = torch.cat([
+                torch.tensor([[start_speech_token]]).to(device),
+                dummy_speech_tokens,
+                torch.tensor([[stop_speech_token]]).to(device)
+            ], dim=1)
+            
             dummy_text_lens = torch.tensor([text_len]).to(device)
             dummy_speech_lens = torch.tensor([speech_len]).to(device)
             
