@@ -4,9 +4,14 @@ Test model forward pass on validation samples to find NaN source
 Usage:
     python test_model_forward.py
 """
+import sys
+from pathlib import Path
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent / "src"))
+
 import torch
 import logging
-from pathlib import Path
 import json
 from tqdm import tqdm
 

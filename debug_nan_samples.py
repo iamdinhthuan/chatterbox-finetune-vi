@@ -5,9 +5,14 @@ Usage:
     python debug_nan_samples.py --sample_idx 100
     python debug_nan_samples.py --audio_path "wavs/vivoice_100.wav"
 """
+import sys
+from pathlib import Path
+
+# Add src to path (in case it's needed)
+sys.path.insert(0, str(Path(__file__).parent / "src"))
+
 import argparse
 import torch
-from pathlib import Path
 import json
 import logging
 

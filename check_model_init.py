@@ -4,9 +4,14 @@ Check if model is loading pretrained weights properly
 Usage:
     python check_model_init.py
 """
+import sys
+from pathlib import Path
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent / "src"))
+
 import torch
 import logging
-from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
