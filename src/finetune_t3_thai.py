@@ -688,8 +688,12 @@ class SpeechDataCollator:
         mask_pad_speech = arange_speech[None] >= speech_lens_minus_one[:, None]  # (B, T_speech)
 
         # Mask positions t < prompt_len
-        mask_prompt = arange_speech[None] < prompt_len  # (1, T_speech) -> broadcast to (B, T_speech)
-        mask_prompt = mask_prompt.expand(batch_size, T_speech)
+        # Prevent masking away the entire target sequence by capping the prompt mask per-sample.
+        per_sample_prompt_cap = torch.minimum(
+            torch.full_like(speech_lens_minus_one, prompt_len),
+            torch.clamp(speech_lens_minus_one - 1, min=0)
+        )
+        mask_prompt = arange_speech[None, :] < per_sample_prompt_cap[:, None]
 
         # Combine masks
         mask_speech_total = mask_pad_speech | mask_prompt  # (B, T_speech)
