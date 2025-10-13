@@ -1276,7 +1276,9 @@ def run_training(model_args, data_args, training_args):
             train_dataset = PreprocessedDataset(
                 preprocessed_dir=data_args.preprocessed_dir,
                 max_text_len=data_args.max_text_len,
-                max_speech_len=data_args.max_speech_len
+                max_speech_len=data_args.max_speech_len,
+                split='train',
+                eval_split_size=data_args.eval_split_size
             )
         elif model_args.model_config:
             train_dataset = SpeechFineTuningDataset(
@@ -1326,15 +1328,15 @@ def run_training(model_args, data_args, training_args):
                 )
         else:
             if data_args.use_preprocessed:
-                # For preprocessed data, we use the same dataset but could split it
-                # For now, use a small portion for validation
-                logger.info(f"📊 Using preprocessed dataset for validation (same as train)")
+                # Use validation split of preprocessed dataset
+                logger.info(f"📊 Using preprocessed dataset for validation (split={data_args.eval_split_size})")
                 eval_dataset = PreprocessedDataset(
                     preprocessed_dir=data_args.preprocessed_dir,
                     max_text_len=data_args.max_text_len,
-                    max_speech_len=data_args.max_speech_len
+                    max_speech_len=data_args.max_speech_len,
+                    split='val',
+                    eval_split_size=data_args.eval_split_size
                 )
-                # TODO: Split preprocessed dataset into train/val
             elif model_args.model_config:
                 eval_dataset = SpeechFineTuningDataset(
                     data_args,

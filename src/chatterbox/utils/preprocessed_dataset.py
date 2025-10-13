@@ -23,7 +23,7 @@ class PreprocessedDataset(Dataset):
     - All features pre-computed offline
     """
     
-    def __init__(self, preprocessed_dir: str, max_text_len: int = 256, max_speech_len: int = 4096):
+    def __init__(self, preprocessed_dir: str, max_text_len: int = 256, max_speech_len: int = 4096, split: str = 'train', eval_split_size: float = 0.01):
         self.preprocessed_dir = Path(preprocessed_dir)
         self.max_text_len = max_text_len
         self.max_speech_len = max_speech_len
@@ -36,8 +36,23 @@ class PreprocessedDataset(Dataset):
         with open(metadata_path, 'r') as f:
             self.metadata = json.load(f)
         
-        self.samples = self.metadata['samples']
-        logger.info(f"Loaded {len(self.samples)} preprocessed samples from {preprocessed_dir}")
+        all_samples = self.metadata['samples']
+        
+        # Split into train/val based on split parameter
+        if split == 'train':
+            # Use first (1 - eval_split_size) samples for training
+            split_idx = int(len(all_samples) * (1 - eval_split_size))
+            self.samples = all_samples[:split_idx]
+            logger.info(f"Loaded {len(self.samples)}/{len(all_samples)} preprocessed samples for TRAINING from {preprocessed_dir}")
+        elif split == 'val' or split == 'eval':
+            # Use last eval_split_size samples for validation
+            split_idx = int(len(all_samples) * (1 - eval_split_size))
+            self.samples = all_samples[split_idx:]
+            logger.info(f"Loaded {len(self.samples)}/{len(all_samples)} preprocessed samples for VALIDATION from {preprocessed_dir}")
+        else:
+            # Use all samples (backward compatibility)
+            self.samples = all_samples
+            logger.info(f"Loaded {len(self.samples)} preprocessed samples from {preprocessed_dir}")
         
     def __len__(self):
         return len(self.samples)
