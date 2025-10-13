@@ -9,7 +9,7 @@ from .models.s3tokenizer import S3_SR
 from .models.s3gen import S3GEN_SR, S3Gen
 
 
-REPO_ID = "tel4vn/chatterxbox"
+REPO_ID = "ResembleAI/chatterbox"
 
 
 class ChatterboxVC:

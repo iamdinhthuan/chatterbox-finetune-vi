@@ -16,7 +16,7 @@ from .models.voice_encoder import VoiceEncoder
 from .models.t3.modules.cond_enc import T3Cond
 
 
-REPO_ID = "tel4vn/chatterxbox"
+REPO_ID = "ResembleAI/chatterbox"
 
 
 def punc_norm(text: str) -> str:
