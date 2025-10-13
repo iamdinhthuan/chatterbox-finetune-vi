@@ -105,10 +105,11 @@ def check_model_initialization():
             )
             
             with torch.no_grad():
+                # T3.forward expects a dict with specific keys
                 logits = model.t3(
-                    dummy_text_tokens,
-                    dummy_speech_tokens,
-                    dummy_cond
+                    text_tokens=dummy_text_tokens,
+                    speech_tokens=dummy_speech_tokens,
+                    cond=dummy_cond
                 )
             
             logger.info(f"\n📤 T3 forward pass result:")
