@@ -9,6 +9,8 @@ from pathlib import Path
 import torch
 import torchaudio as ta
 from safetensors.torch import load_file
+import re
+import numpy as np
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -23,6 +25,76 @@ from src.chatterbox.models.tokenizers import EnTokenizer
 # Note: Removed normalize_vietnamese() function - not needed
 # The model.generate() method already handles text normalization internally via punc_norm()
 # Training doesn't use normalize_vietnamese, so inference shouldn't either for consistency
+
+
+def split_sentences(text: str):
+    """Split text into sentences by . and ?"""
+    # Split by . or ? but keep the punctuation
+    sentences = re.split(r'([.?!])', text)
+    
+    # Combine text with its punctuation
+    result = []
+    for i in range(0, len(sentences)-1, 2):
+        sentence = sentences[i].strip()
+        punct = sentences[i+1] if i+1 < len(sentences) else ''
+        if sentence:
+            result.append(sentence + punct)
+    
+    # Handle last sentence if no punctuation
+    if len(sentences) % 2 == 1 and sentences[-1].strip():
+        result.append(sentences[-1].strip())
+    
+    return [s for s in result if s.strip()]
+
+
+def cross_fade_audio(audio_segments, sample_rate=24000, fade_duration_ms=100):
+    """
+    Merge audio segments with cross-fading
+    
+    Args:
+        audio_segments: List of audio tensors [batch, samples]
+        sample_rate: Audio sample rate (default 24000)
+        fade_duration_ms: Cross-fade duration in milliseconds (default 100ms)
+    
+    Returns:
+        Merged audio tensor
+    """
+    if len(audio_segments) == 0:
+        return torch.zeros(1, 0)
+    
+    if len(audio_segments) == 1:
+        return audio_segments[0]
+    
+    # Calculate fade samples
+    fade_samples = int(sample_rate * fade_duration_ms / 1000)
+    
+    # Start with first segment
+    result = audio_segments[0].clone()
+    
+    for i in range(1, len(audio_segments)):
+        current_seg = audio_segments[i]
+        
+        # If segments are too short for fading, just concatenate
+        if result.shape[1] < fade_samples or current_seg.shape[1] < fade_samples:
+            result = torch.cat([result, current_seg], dim=1)
+            continue
+        
+        # Create fade curves
+        fade_out = torch.linspace(1, 0, fade_samples).to(result.device)
+        fade_in = torch.linspace(0, 1, fade_samples).to(current_seg.device)
+        
+        # Apply fade to overlapping region
+        result[:, -fade_samples:] = result[:, -fade_samples:] * fade_out
+        
+        # Overlap and add
+        overlap_region = result[:, -fade_samples:] + current_seg[:, :fade_samples] * fade_in
+        result[:, -fade_samples:] = overlap_region
+        
+        # Append the rest of current segment
+        result = torch.cat([result, current_seg[:, fade_samples:]], dim=1)
+    
+    return result
+
 
 def load_finetuned_model(checkpoint_path: Path, base_model_path: Path, device: str):
     """
@@ -125,6 +197,8 @@ def main():
     parser.add_argument("--min_tokens", type=int, default=30, help="Minimum speech tokens to generate (default: 30)")
     parser.add_argument("--verbose", action="store_true", help="Enable debug logging")
     parser.add_argument("--no_drop_tokens", action="store_true", help="Disable drop_invalid_tokens (for debugging)")
+    parser.add_argument("--split_sentences", action="store_true", help="Split text by sentences and merge with cross-fading")
+    parser.add_argument("--fade_duration", type=int, default=100, help="Cross-fade duration in ms (default: 100)")
     
     args = parser.parse_args()
     
@@ -220,12 +294,42 @@ def main():
     # Generate speech
     print(f"🎵 Generating speech...")
     try:
-        wav = model.generate(
-            args.text,  # model.generate() will normalize internally via punc_norm()
-            temperature=args.temperature,
-            cfg_weight=args.cfg_weight,
-            min_tokens=args.min_tokens,
-        )
+        if args.split_sentences:
+            # Split text into sentences
+            sentences = split_sentences(args.text)
+            print(f"📝 Split into {len(sentences)} sentences:")
+            for i, sent in enumerate(sentences, 1):
+                print(f"   {i}. {sent}")
+            print()
+            
+            # Generate audio for each sentence
+            audio_segments = []
+            for i, sentence in enumerate(sentences, 1):
+                print(f"🎙️  Generating sentence {i}/{len(sentences)}: {sentence[:50]}...")
+                
+                wav_seg = model.generate(
+                    sentence,
+                    temperature=args.temperature,
+                    cfg_weight=args.cfg_weight,
+                    min_tokens=args.min_tokens,
+                )
+                audio_segments.append(wav_seg)
+                
+                seg_duration = wav_seg.shape[-1] / model.sr
+                print(f"   ✓ Generated {seg_duration:.2f}s")
+            
+            # Merge audio segments with cross-fading
+            print(f"\n🔗 Merging {len(audio_segments)} segments with {args.fade_duration}ms cross-fade...")
+            wav = cross_fade_audio(audio_segments, sample_rate=model.sr, fade_duration_ms=args.fade_duration)
+            print(f"   ✓ Merged successfully")
+        else:
+            # Generate full text at once
+            wav = model.generate(
+                args.text,  # model.generate() will normalize internally via punc_norm()
+                temperature=args.temperature,
+                cfg_weight=args.cfg_weight,
+                min_tokens=args.min_tokens,
+            )
         
         # Check audio quality
         duration = wav.shape[-1] / model.sr
@@ -242,6 +346,9 @@ def main():
         print(f"🎵 Sample rate: {model.sr} Hz")
         print(f"⏱️  Duration: {duration:.2f}s")
         print(f"📊 Audio shape: {wav.shape}")
+        if args.split_sentences:
+            print(f"📊 Sentences: {len(sentences)}")
+            print(f"⏱️  Fade duration: {args.fade_duration}ms")
         print("="*80)
         
     except Exception as e:
