@@ -282,6 +282,7 @@ class T3(nn.Module):
         # HF generate args
         num_return_sequences=1,
         max_new_tokens=None,
+        min_new_tokens=0,
         stop_on_eos=True,
         do_sample=True,
         temperature=0.8,
@@ -415,8 +416,8 @@ class T3(nn.Module):
             predicted.append(next_token)
             generated_ids = torch.cat([generated_ids, next_token], dim=1)
 
-            # Check for EOS token.
-            if next_token.view(-1) == self.hp.stop_speech_token:
+            # Check for EOS token (but not before min_new_tokens).
+            if i >= min_new_tokens - 1 and next_token.view(-1) == self.hp.stop_speech_token:
                 break
 
             # Get embedding for the new token.
@@ -440,4 +441,9 @@ class T3(nn.Module):
 
         # Concatenate all predicted tokens along the sequence dimension.
         predicted_tokens = torch.cat(predicted, dim=1)  # shape: (B, num_tokens)
+        
+        # Debug logging
+        import logging
+        logging.info(f"Generated {predicted_tokens.shape[1]} speech tokens (min: {min_new_tokens}, max: {max_new_tokens})")
+        
         return predicted_tokens

@@ -212,6 +212,7 @@ class ChatterboxTTS:
         exaggeration=0.5,
         cfg_weight=0.5,
         temperature=0.8,
+        min_tokens=10,
     ):
         if audio_prompt_path:
             self.prepare_conditionals(audio_prompt_path, exaggeration=exaggeration)
@@ -244,20 +245,38 @@ class ChatterboxTTS:
                 t3_cond=self.conds.t3,
                 text_tokens=text_tokens,
                 max_new_tokens=1000,  # TODO: use the value in config
+                min_new_tokens=min_tokens,
                 temperature=temperature,
                 cfg_weight=cfg_weight,
             )
             # Extract only the conditional batch.
             speech_tokens = speech_tokens[0]
+            
+            # Debug: print number of tokens before/after processing
+            print(f"   Generated {len(speech_tokens)} speech tokens")
 
             # TODO: output becomes 1D
             speech_tokens = drop_invalid_tokens(speech_tokens)
+            print(f"   After dropping invalid: {len(speech_tokens)} tokens")
             speech_tokens = speech_tokens.to(self.device)
 
             wav, _ = self.s3gen.inference(
                 speech_tokens=speech_tokens,
                 ref_dict=self.conds.gen,
             )
+            
+            # Check if audio is too short (less than 0.1 seconds)
+            if wav.shape[1] < self.sr * 0.1:
+                import warnings
+                warnings.warn(f"Generated audio is very short ({wav.shape[1]/self.sr:.3f}s). This may indicate a generation issue.")
+            
             wav = wav.squeeze(0).detach().cpu().numpy()
+            
+            # Check for invalid audio (all zeros or NaN)
+            if wav.size == 0 or wav.max() == 0:
+                raise ValueError("Generated audio is empty or silent")
+            if not torch.isfinite(torch.from_numpy(wav)).all():
+                raise ValueError("Generated audio contains NaN or Inf values")
+                
             watermarked_wav = self.watermarker.apply_watermark(wav, sample_rate=self.sr)
         return torch.from_numpy(watermarked_wav).unsqueeze(0)

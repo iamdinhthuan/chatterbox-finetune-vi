@@ -8,8 +8,6 @@ import argparse
 from pathlib import Path
 import torch
 import torchaudio as ta
-import unicodedata
-import re
 from safetensors.torch import load_file
 
 # Add src to path
@@ -22,41 +20,9 @@ from src.chatterbox.models.voice_encoder import VoiceEncoder
 from src.chatterbox.models.tokenizers import EnTokenizer
 
 
-def normalize_vietnamese(text: str) -> str:
-    """Normalize Vietnamese text for TTS"""
-    if not text or len(text.strip()) == 0:
-        return "Vui lòng nhập văn bản"
-    
-    # Normalize Unicode to NFC
-    text = unicodedata.normalize('NFC', text)
-    
-    # Lowercase
-    text = text.lower()
-    
-    # Basic cleanup
-    text = " ".join(text.split())
-    
-    # Handle punctuation
-    text = text.replace("...", " ")
-    text = text.replace("…", " ")
-    text = text.replace(":", ",")
-    text = text.replace(";", ",")
-    text = text.replace("—", "-")
-    text = text.replace("–", "-")
-    
-    # Remove quotes
-    text = text.replace('"', '')
-    text = text.replace("'", '')
-    
-    # Keep only Vietnamese chars, numbers, basic punctuation
-    text = re.sub(r'[^a-zàáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđ\s\.\,\!\?0-9\-]', '', text)
-    
-    # Clean up spaces
-    text = re.sub(r'\s+', ' ', text)
-    text = text.strip()
-    
-    return text
-
+# Note: Removed normalize_vietnamese() function - not needed
+# The model.generate() method already handles text normalization internally via punc_norm()
+# Training doesn't use normalize_vietnamese, so inference shouldn't either for consistency
 
 def load_finetuned_model(checkpoint_path: Path, base_model_path: Path, device: str):
     """
@@ -155,8 +121,23 @@ def main():
     parser.add_argument("--temperature", type=float, default=0.8, help="Sampling temperature (default: 0.8)")
     parser.add_argument("--cfg_weight", type=float, default=0.5, help="CFG weight (default: 0.5)")
     parser.add_argument("--exaggeration", type=float, default=0.5, help="Emotion exaggeration (default: 0.5)")
+    parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducible generation")
+    parser.add_argument("--min_tokens", type=int, default=10, help="Minimum speech tokens to generate (default: 10)")
     
     args = parser.parse_args()
+    
+    # Set random seed if provided
+    if args.seed is not None:
+        import random
+        import numpy as np
+        random.seed(args.seed)
+        np.random.seed(args.seed)
+        torch.manual_seed(args.seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(args.seed)
+            torch.cuda.manual_seed_all(args.seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
     
     # Auto-detect device
     if args.device is None:
@@ -181,6 +162,9 @@ def main():
     print(f"🎛️  Temperature: {args.temperature}")
     print(f"🎛️  CFG weight: {args.cfg_weight}")
     print(f"🎛️  Exaggeration: {args.exaggeration}")
+    if args.seed is not None:
+        print(f"🎲 Seed: {args.seed}")
+    print(f"📏 Min tokens: {args.min_tokens}")
     print("="*80 + "\n")
 
     # Check paths
@@ -205,10 +189,8 @@ def main():
         traceback.print_exc()
         return
     
-    # Normalize text
-    normalized_text = normalize_vietnamese(args.text)
-    print(f"📝 Original text: {args.text}")
-    print(f"📝 Normalized text: {normalized_text}\n")
+    # Display text info (model.generate() will do normalization internally via punc_norm())
+    print(f"📝 Text: {args.text}\n")
     
     # Prepare voice conditioning
     if args.voice:
@@ -233,10 +215,17 @@ def main():
     print(f"🎵 Generating speech...")
     try:
         wav = model.generate(
-            normalized_text,
+            args.text,  # model.generate() will normalize internally via punc_norm()
             temperature=args.temperature,
             cfg_weight=args.cfg_weight,
+            min_tokens=args.min_tokens,
         )
+        
+        # Check audio quality
+        duration = wav.shape[-1] / model.sr
+        if duration < 0.5:
+            print(f"⚠️  WARNING: Generated audio is very short ({duration:.2f}s)")
+            print(f"   This may indicate an issue with the voice reference or generation parameters")
         
         # Save output
         output_path = Path(args.output)
@@ -245,7 +234,8 @@ def main():
         print(f"\n✅ SUCCESS!")
         print(f"📁 Audio saved: {output_path}")
         print(f"🎵 Sample rate: {model.sr} Hz")
-        print(f"⏱️  Duration: {wav.shape[-1] / model.sr:.2f}s")
+        print(f"⏱️  Duration: {duration:.2f}s")
+        print(f"📊 Audio shape: {wav.shape}")
         print("="*80)
         
     except Exception as e:
