@@ -121,8 +121,8 @@ def main():
     parser.add_argument("--temperature", type=float, default=0.8, help="Sampling temperature (default: 0.8)")
     parser.add_argument("--cfg_weight", type=float, default=0.5, help="CFG weight (default: 0.5)")
     parser.add_argument("--exaggeration", type=float, default=0.5, help="Emotion exaggeration (default: 0.5)")
-    parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducible generation")
-    parser.add_argument("--min_tokens", type=int, default=10, help="Minimum speech tokens to generate (default: 10)")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducible generation")
+    parser.add_argument("--min_tokens", type=int, default=30, help="Minimum speech tokens to generate (default: 30)")
     
     args = parser.parse_args()
     
