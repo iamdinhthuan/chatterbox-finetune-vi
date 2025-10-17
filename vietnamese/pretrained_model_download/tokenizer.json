@@ -1,0 +1,3031 @@
+{
+  "version": "1.0",
+  "truncation": null,
+  "padding": null,
+  "added_tokens": [
+    {
+      "id": 0,
+      "content": "[STOP]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 1,
+      "content": "[UNK]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 2,
+      "content": "[SPACE]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 255,
+      "content": "[START]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 604,
+      "content": "[UH]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 605,
+      "content": "[UM]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 606,
+      "content": "[giggle]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 607,
+      "content": "[laughter]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 608,
+      "content": "[guffaw]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 609,
+      "content": "[inhale]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 610,
+      "content": "[exhale]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 611,
+      "content": "[sigh]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 612,
+      "content": "[cry]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 613,
+      "content": "[bark]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 614,
+      "content": "[howl]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 615,
+      "content": "[meow]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 616,
+      "content": "[singing]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 617,
+      "content": "[music]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 618,
+      "content": "[whistle]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 619,
+      "content": "[humming]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 620,
+      "content": "[gasp]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 621,
+      "content": "[groan]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 622,
+      "content": "[whisper]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 623,
+      "content": "[mumble]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 624,
+      "content": "[sniff]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 625,
+      "content": "[sneeze]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 626,
+      "content": "[cough]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 627,
+      "content": "[snore]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 628,
+      "content": "[chew]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 629,
+      "content": "[sip]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 630,
+      "content": "[clear_throat]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 631,
+      "content": "[kiss]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 632,
+      "content": "[shhh]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 633,
+      "content": "[gibberish]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 634,
+      "content": "[fr]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 635,
+      "content": "[es]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 636,
+      "content": "[de]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 637,
+      "content": "[it]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 638,
+      "content": "[ipa]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 639,
+      "content": "[end_of_label]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 695,
+      "content": "[PLACEHOLDER55]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 696,
+      "content": "[PLACEHOLDER56]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 697,
+      "content": "[PLACEHOLDER57]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 698,
+      "content": "[PLACEHOLDER58]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 699,
+      "content": "[PLACEHOLDER59]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 700,
+      "content": "[PLACEHOLDER60]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 701,
+      "content": "[PLACEHOLDER61]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 702,
+      "content": "[PLACEHOLDER62]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 703,
+      "content": "[PLACEHOLDER63]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    }
+  ],
+  "normalizer": null,
+  "pre_tokenizer": {
+    "type": "Whitespace"
+  },
+  "post_processor": null,
+  "decoder": null,
+  "model": {
+    "type": "BPE",
+    "dropout": null,
+    "unk_token": "[UNK]",
+    "continuing_subword_prefix": null,
+    "end_of_word_suffix": null,
+    "fuse_unk": false,
+    "byte_fallback": false,
+    "vocab": {
+      "[STOP]": 0,
+      "[UNK]": 1,
+      "[SPACE]": 2,
+      "!": 3,
+      "'": 4,
+      "(": 5,
+      ")": 6,
+      ",": 7,
+      "-": 8,
+      ".": 9,
+      ":": 10,
+      ";": 11,
+      "?": 12,
+      "A": 13,
+      "B": 14,
+      "C": 15,
+      "D": 16,
+      "E": 17,
+      "F": 18,
+      "G": 19,
+      "H": 20,
+      "I": 21,
+      "J": 22,
+      "K": 23,
+      "L": 24,
+      "M": 25,
+      "N": 26,
+      "O": 27,
+      "P": 28,
+      "Q": 29,
+      "R": 30,
+      "S": 31,
+      "T": 32,
+      "U": 33,
+      "V": 34,
+      "W": 35,
+      "X": 36,
+      "Y": 37,
+      "Z": 38,
+      "a": 39,
+      "b": 40,
+      "c": 41,
+      "d": 42,
+      "e": 43,
+      "f": 44,
+      "g": 45,
+      "h": 46,
+      "i": 47,
+      "j": 48,
+      "k": 49,
+      "l": 50,
+      "m": 51,
+      "n": 52,
+      "o": 53,
+      "p": 54,
+      "q": 55,
+      "r": 56,
+      "s": 57,
+      "t": 58,
+      "u": 59,
+      "v": 60,
+      "w": 61,
+      "x": 62,
+      "y": 63,
+      "z": 64,
+      "À": 65,
+      "Á": 66,
+      "Â": 67,
+      "É": 68,
+      "Ê": 69,
+      "Ì": 70,
+      "Í": 71,
+      "Ð": 72,
+      "Ó": 73,
+      "Ô": 74,
+      "Ø": 75,
+      "Ù": 76,
+      "Ú": 77,
+      "Ý": 78,
+      "à": 79,
+      "á": 80,
+      "â": 81,
+      "ã": 82,
+      "ä": 83,
+      "å": 84,
+      "ç": 85,
+      "è": 86,
+      "é": 87,
+      "ê": 88,
+      "ë": 89,
+      "ì": 90,
+      "í": 91,
+      "î": 92,
+      "ï": 93,
+      "ð": 94,
+      "ñ": 95,
+      "ò": 96,
+      "ó": 97,
+      "ô": 98,
+      "õ": 99,
+      "ö": 100,
+      "ù": 101,
+      "ú": 102,
+      "û": 103,
+      "ü": 104,
+      "ý": 105,
+      "ā": 106,
+      "Ă": 107,
+      "ă": 108,
+      "Đ": 109,
+      "đ": 110,
+      "ĩ": 111,
+      "ō": 112,
+      "ũ": 113,
+      "Ơ": 114,
+      "ơ": 115,
+      "Ư": 116,
+      "ư": 117,
+      "̀": 118,
+      "́": 119,
+      "̃": 120,
+      "̉": 121,
+      "̣": 122,
+      "ạ": 123,
+      "Ả": 124,
+      "ả": 125,
+      "Ấ": 126,
+      "ấ": 127,
+      "Ầ": 128,
+      "ầ": 129,
+      "Ẩ": 130,
+      "ẩ": 131,
+      "ẫ": 132,
+      "Ậ": 133,
+      "ậ": 134,
+      "Ắ": 135,
+      "ắ": 136,
+      "ằ": 137,
+      "ẳ": 138,
+      "ẵ": 139,
+      "ặ": 140,
+      "ẹ": 141,
+      "Ẻ": 142,
+      "ẻ": 143,
+      "ẽ": 144,
+      "Ế": 145,
+      "ế": 146,
+      "ề": 147,
+      "ể": 148,
+      "ễ": 149,
+      "Ệ": 150,
+      "ệ": 151,
+      "Ỉ": 152,
+      "ỉ": 153,
+      "ị": 154,
+      "Ọ": 155,
+      "ọ": 156,
+      "ỏ": 157,
+      "Ố": 158,
+      "ố": 159,
+      "Ồ": 160,
+      "ồ": 161,
+      "Ổ": 162,
+      "ổ": 163,
+      "ỗ": 164,
+      "ộ": 165,
+      "Ớ": 166,
+      "ớ": 167,
+      "Ờ": 168,
+      "ờ": 169,
+      "Ở": 170,
+      "ở": 171,
+      "ỡ": 172,
+      "ợ": 173,
+      "Ụ": 174,
+      "ụ": 175,
+      "Ủ": 176,
+      "ủ": 177,
+      "Ứ": 178,
+      "ứ": 179,
+      "Ừ": 180,
+      "ừ": 181,
+      "ử": 182,
+      "ữ": 183,
+      "ự": 184,
+      "ỳ": 185,
+      "ỵ": 186,
+      "ỷ": 187,
+      "Ỹ": 188,
+      "ỹ": 189,
+      "–": 190,
+      "—": 191,
+      "ng": 192,
+      "nh": 193,
+      "th": 194,
+      "ch": 195,
+      "tr": 196,
+      "kh": 197,
+      "ông": 198,
+      "ph": 199,
+      "iệ": 200,
+      "gi": 201,
+      "là": 202,
+      "và": 203,
+      "có": 204,
+      "ên": 205,
+      "ườ": 206,
+      "qu": 207,
+      "cá": 208,
+      "iế": 209,
+      "ột": 210,
+      "ủa": 211,
+      "của": 212,
+      "không": 213,
+      "ình": 214,
+      "một": 215,
+      "ượ": 216,
+      "ới": 217,
+      "uy": 218,
+      "ất": 219,
+      "ười": 220,
+      "thể": 221,
+      "nà": 222,
+      "ong": 223,
+      "ôi": 224,
+      "iề": 225,
+      "ại": 226,
+      "ần": 227,
+      "người": 228,
+      "ững": 229,
+      "ạn": 230,
+      "ược": 231,
+      "ngh": 232,
+      "các": 233,
+      "an": 234,
+      "những": 235,
+      "trong": 236,
+      "ân": 237,
+      "cho": 238,
+      "được": 239,
+      "iều": 240,
+      "ta": 241,
+      "ác": 242,
+      "ải": 243,
+      "iên": 244,
+      "như": 245,
+      "iể": 246,
+      "này": 247,
+      "úng": 248,
+      "để": 249,
+      "anh": 250,
+      "ra": 251,
+      "ao": 252,
+      "iệc": 253,
+      "ực": 254,
+      "[START]": 255,
+      "ay": 256,
+      "iện": 257,
+      "ấy": 258,
+      "ành": 259,
+      "tôi": 260,
+      "bạn": 261,
+      "với": 262,
+      "ết": 263,
+      "ai": 264,
+      "ến": 265,
+      "iết": 266,
+      "ường": 267,
+      "độ": 268,
+      "ức": 269,
+      "sự": 270,
+      "ướ": 271,
+      "đã": 272,
+      "cả": 273,
+      "nó": 274,
+      "việc": 275,
+      "ươ": 276,
+      "đó": 277,
+      "ời": 278,
+      "ũng": 279,
+      "ối": 280,
+      "mà": 281,
+      "họ": 282,
+      "sẽ": 283,
+      "ho": 284,
+      "cũng": 285,
+      "ản": 286,
+      "ầu": 287,
+      "ương": 288,
+      "ống": 289,
+      "àng": 290,
+      "ti": 291,
+      "mình": 292,
+      "đến": 293,
+      "lại": 294,
+      "ận": 295,
+      "ơn": 296,
+      "ang": 297,
+      "ính": 298,
+      "ây": 299,
+      "ật": 300,
+      "cần": 301,
+      "về": 302,
+      "ài": 303,
+      "khi": 304,
+      "ước": 305,
+      "làm": 306,
+      "au": 307,
+      "từ": 308,
+      "Ch": 309,
+      "dụ": 310,
+      "phải": 311,
+      "chúng": 312,
+      "inh": 313,
+      "ăng": 314,
+      "công": 315,
+      "ùng": 316,
+      "phá": 317,
+      "on": 318,
+      "ằng": 319,
+      "iến": 320,
+      "chỉ": 321,
+      "sá": 322,
+      "Th": 323,
+      "àn": 324,
+      "êu": 325,
+      "động": 326,
+      "ích": 327,
+      "thì": 328,
+      "đị": 329,
+      "iệu": 330,
+      "vào": 331,
+      "òn": 332,
+      "quan": 333,
+      "ăn": 334,
+      "Nh": 335,
+      "cách": 336,
+      "âu": 337,
+      "ung": 338,
+      "em": 339,
+      "hơn": 340,
+      "nào": 341,
+      "ập": 342,
+      "đầu": 343,
+      "ếu": 344,
+      "ồi": 345,
+      "gì": 346,
+      "nhiều": 347,
+      "ạo": 348,
+      "ội": 349,
+      "đi": 350,
+      "ảo": 351,
+      "thành": 352,
+      "thực": 353,
+      "ổi": 354,
+      "eo": 355,
+      "con": 356,
+      "thu": 357,
+      "úc": 358,
+      "điều": 359,
+      "hiện": 360,
+      "thế": 361,
+      "còn": 362,
+      "định": 363,
+      "chính": 364,
+      "nói": 365,
+      "cái": 366,
+      "ốn": 367,
+      "khác": 368,
+      "giá": 369,
+      "iểu": 370,
+      "quy": 371,
+      "thấy": 372,
+      "dụng": 373,
+      "số": 374,
+      "ồng": 375,
+      "ộc": 376,
+      "ữa": 377,
+      "cu": 378,
+      "am": 379,
+      "ọng": 380,
+      "học": 381,
+      "bị": 382,
+      "nên": 383,
+      "chuy": 384,
+      "đề": 385,
+      "ặc": 386,
+      "ẫn": 387,
+      "biết": 388,
+      "rất": 389,
+      "ắc": 390,
+      "tiế": 391,
+      "ái": 392,
+      "thời": 393,
+      "mu": 394,
+      "ền": 395,
+      "ưa": 396,
+      "ục": 397,
+      "ôn": 398,
+      "iệm": 399,
+      "gia": 400,
+      "âm": 401,
+      "Kh": 402,
+      "iểm": 403,
+      "nhà": 404,
+      "ắt": 405,
+      "đá": 406,
+      "úp": 407,
+      "ậy": 408,
+      "cảm": 409,
+      "nhân": 410,
+      "ăm": 411,
+      "ày": 412,
+      "giúp": 413,
+      "ặt": 414,
+      "giả": 415,
+      "ọi": 416,
+      "ượng": 417,
+      "quả": 418,
+      "thông": 419,
+      "năng": 420,
+      "nhận": 421,
+      "theo": 422,
+      "ứng": 423,
+      "nhất": 424,
+      "tạo": 425,
+      "án": 426,
+      "lý": 427,
+      "ơi": 428,
+      "tin": 429,
+      "rằng": 430,
+      "cùng": 431,
+      "Ng": 432,
+      "tư": 433,
+      "tố": 434,
+      "sống": 435,
+      "òng": 436,
+      "hàng": 437,
+      "ện": 438,
+      "to": 439,
+      "hai": 440,
+      "Một": 441,
+      "đang": 442,
+      "trình": 443,
+      "gian": 444,
+      "nghĩ": 445,
+      "ởng": 446,
+      "ách": 447,
+      "ạt": 448,
+      "trọng": 449,
+      "cô": 450,
+      "ợp": 451,
+      "hành": 452,
+      "ạnh": 453,
+      "trên": 454,
+      "hợp": 455,
+      "Tr": 456,
+      "ỏi": 457,
+      "mới": 458,
+      "ưng": 459,
+      "do": 460,
+      "lu": 461,
+      "nhưng": 462,
+      "Và": 463,
+      "iệt": 464,
+      "thiết": 465,
+      "tự": 466,
+      "bảo": 467,
+      "hội": 468,
+      "lo": 469,
+      "sử": 470,
+      "ngày": 471,
+      "ấn": 472,
+      "qua": 473,
+      "phát": 474,
+      "vì": 475,
+      "iển": 476,
+      "ấp": 477,
+      "sau": 478,
+      "cơ": 479,
+      "đồng": 480,
+      "hay": 481,
+      "cuộc": 482,
+      "xu": 483,
+      "lớ": 484,
+      "ỗi": 485,
+      "hiệu": 486,
+      "trước": 487,
+      "thức": 488,
+      "dự": 489,
+      "chi": 490,
+      "tiếp": 491,
+      "thường": 492,
+      "vậy": 493,
+      "iền": 494,
+      "tiêu": 495,
+      "rồi": 496,
+      "tâm": 497,
+      "trường": 498,
+      "muốn": 499,
+      "kết": 500,
+      "bản": 501,
+      "ìm": 502,
+      "đây": 503,
+      "ắn": 504,
+      "Chúng": 505,
+      "tiên": 506,
+      "ọn": 507,
+      "óa": 508,
+      "lên": 509,
+      "ưu": 510,
+      "hình": 511,
+      "giờ": 512,
+      "ãy": 513,
+      "ồn": 514,
+      "mọi": 515,
+      "ịch": 516,
+      "bao": 517,
+      "tình": 518,
+      "cứ": 519,
+      "pháp": 520,
+      "ẳng": 521,
+      "nhau": 522,
+      "ốc": 523,
+      "nhiên": 524,
+      "quá": 525,
+      "ìn": 526,
+      "hiểu": 527,
+      "ẩm": 528,
+      "uyên": 529,
+      "lớn": 530,
+      "ạng": 531,
+      "cao": 532,
+      "tìm": 533,
+      "trở": 534,
+      "sao": 535,
+      "kế": 536,
+      "sách": 537,
+      "tại": 538,
+      "Nhưng": 539,
+      "ợi": 540,
+      "đối": 541,
+      "đo": 542,
+      "en": 543,
+      "bằng": 544,
+      "êm": 545,
+      "chuyện": 546,
+      "nếu": 547,
+      "hoặc": 548,
+      "lượng": 549,
+      "iệp": 550,
+      "toàn": 551,
+      "Có": 552,
+      "ảnh": 553,
+      "đổi": 554,
+      "tác": 555,
+      "tốt": 556,
+      "ro": 557,
+      "sinh": 558,
+      "thân": 559,
+      "rõ": 560,
+      "triển": 561,
+      "phương": 562,
+      "vẫn": 563,
+      "uyết": 564,
+      "nữa": 565,
+      "phần": 566,
+      "hóa": 567,
+      "Bạn": 568,
+      "kho": 569,
+      "nước": 570,
+      "ưởng": 571,
+      "oài": 572,
+      "ừng": 573,
+      "ánh": 574,
+      "ộng": 575,
+      "viên": 576,
+      "thứ": 577,
+      "Tôi": 578,
+      "nghiệm": 579,
+      "sản": 580,
+      "tu": 581,
+      "chú": 582,
+      "phẩm": 583,
+      "yêu": 584,
+      "tính": 585,
+      "nhìn": 586,
+      "in": 587,
+      "bắt": 588,
+      "đều": 589,
+      "giới": 590,
+      "hỏi": 591,
+      "thay": 592,
+      "ấu": 593,
+      "phí": 594,
+      "mặt": 595,
+      "xem": 596,
+      "năm": 597,
+      "ạch": 598,
+      "tập": 599,
+      "hệ": 600,
+      "ủi": 601,
+      "áo": 602,
+      "liệu": 603,
+      "[UH]": 604,
+      "[UM]": 605,
+      "[giggle]": 606,
+      "[laughter]": 607,
+      "[guffaw]": 608,
+      "[inhale]": 609,
+      "[exhale]": 610,
+      "[sigh]": 611,
+      "[cry]": 612,
+      "[bark]": 613,
+      "[howl]": 614,
+      "[meow]": 615,
+      "[singing]": 616,
+      "[music]": 617,
+      "[whistle]": 618,
+      "[humming]": 619,
+      "[gasp]": 620,
+      "[groan]": 621,
+      "[whisper]": 622,
+      "[mumble]": 623,
+      "[sniff]": 624,
+      "[sneeze]": 625,
+      "[cough]": 626,
+      "[snore]": 627,
+      "[chew]": 628,
+      "[sip]": 629,
+      "[clear_throat]": 630,
+      "[kiss]": 631,
+      "[shhh]": 632,
+      "[gibberish]": 633,
+      "[fr]": 634,
+      "[es]": 635,
+      "[de]": 636,
+      "[it]": 637,
+      "[ipa]": 638,
+      "[end_of_label]": 639,
+      "thích": 640,
+      "Gi": 641,
+      "câu": 642,
+      "dùng": 643,
+      "giảm": 644,
+      "lực": 645,
+      "ướng": 646,
+      "sức": 647,
+      "quyết": 648,
+      "ẩn": 649,
+      "nghiệp": 650,
+      "điểm": 651,
+      "ắng": 652,
+      "chị": 653,
+      "tài": 654,
+      "nghệ": 655,
+      "ậu": 656,
+      "tế": 657,
+      "ắm": 658,
+      "bất": 659,
+      "tổ": 660,
+      "tham": 661,
+      "giải": 662,
+      "vị": 663,
+      "lúc": 664,
+      "bên": 665,
+      "bộ": 666,
+      "hoạt": 667,
+      "trẻ": 668,
+      "tăng": 669,
+      "chưa": 670,
+      "Khi": 671,
+      "chọn": 672,
+      "xác": 673,
+      "ừa": 674,
+      "tích": 675,
+      "bu": 676,
+      "luôn": 677,
+      "mẹ": 678,
+      "thật": 679,
+      "cầu": 680,
+      "óm": 681,
+      "kinh": 682,
+      "át": 683,
+      "vấn": 684,
+      "ba": 685,
+      "ởi": 686,
+      "tiền": 687,
+      "thuyết": 688,
+      "chí": 689,
+      "lời": 690,
+      "ầm": 691,
+      "ào": 692,
+      "Để": 693,
+      "[PLACEHOLDER55]": 695,
+      "[PLACEHOLDER56]": 696,
+      "[PLACEHOLDER57]": 697,
+      "[PLACEHOLDER58]": 698,
+      "[PLACEHOLDER59]": 699,
+      "[PLACEHOLDER60]": 700,
+      "[PLACEHOLDER61]": 701,
+      "[PLACEHOLDER62]": 702,
+      "[PLACEHOLDER63]": 703
+    },
+    "merges": [
+      [
+        "n",
+        "g"
+      ],
+      [
+        "n",
+        "h"
+      ],
+      [
+        "t",
+        "h"
+      ],
+      [
+        "c",
+        "h"
+      ],
+      [
+        "t",
+        "r"
+      ],
+      [
+        "k",
+        "h"
+      ],
+      [
+        "ô",
+        "ng"
+      ],
+      [
+        "p",
+        "h"
+      ],
+      [
+        "i",
+        "ệ"
+      ],
+      [
+        "g",
+        "i"
+      ],
+      [
+        "l",
+        "à"
+      ],
+      [
+        "v",
+        "à"
+      ],
+      [
+        "c",
+        "ó"
+      ],
+      [
+        "ê",
+        "n"
+      ],
+      [
+        "ư",
+        "ờ"
+      ],
+      [
+        "q",
+        "u"
+      ],
+      [
+        "c",
+        "á"
+      ],
+      [
+        "i",
+        "ế"
+      ],
+      [
+        "ộ",
+        "t"
+      ],
+      [
+        "ủ",
+        "a"
+      ],
+      [
+        "c",
+        "ủa"
+      ],
+      [
+        "kh",
+        "ông"
+      ],
+      [
+        "ì",
+        "nh"
+      ],
+      [
+        "m",
+        "ột"
+      ],
+      [
+        "ư",
+        "ợ"
+      ],
+      [
+        "ớ",
+        "i"
+      ],
+      [
+        "u",
+        "y"
+      ],
+      [
+        "ấ",
+        "t"
+      ],
+      [
+        "ườ",
+        "i"
+      ],
+      [
+        "th",
+        "ể"
+      ],
+      [
+        "n",
+        "à"
+      ],
+      [
+        "o",
+        "ng"
+      ],
+      [
+        "ô",
+        "i"
+      ],
+      [
+        "i",
+        "ề"
+      ],
+      [
+        "ạ",
+        "i"
+      ],
+      [
+        "ầ",
+        "n"
+      ],
+      [
+        "ng",
+        "ười"
+      ],
+      [
+        "ữ",
+        "ng"
+      ],
+      [
+        "ạ",
+        "n"
+      ],
+      [
+        "ượ",
+        "c"
+      ],
+      [
+        "ng",
+        "h"
+      ],
+      [
+        "cá",
+        "c"
+      ],
+      [
+        "a",
+        "n"
+      ],
+      [
+        "nh",
+        "ững"
+      ],
+      [
+        "tr",
+        "ong"
+      ],
+      [
+        "â",
+        "n"
+      ],
+      [
+        "ch",
+        "o"
+      ],
+      [
+        "đ",
+        "ược"
+      ],
+      [
+        "iề",
+        "u"
+      ],
+      [
+        "t",
+        "a"
+      ],
+      [
+        "á",
+        "c"
+      ],
+      [
+        "ả",
+        "i"
+      ],
+      [
+        "i",
+        "ên"
+      ],
+      [
+        "nh",
+        "ư"
+      ],
+      [
+        "i",
+        "ể"
+      ],
+      [
+        "nà",
+        "y"
+      ],
+      [
+        "ú",
+        "ng"
+      ],
+      [
+        "đ",
+        "ể"
+      ],
+      [
+        "a",
+        "nh"
+      ],
+      [
+        "r",
+        "a"
+      ],
+      [
+        "a",
+        "o"
+      ],
+      [
+        "iệ",
+        "c"
+      ],
+      [
+        "ự",
+        "c"
+      ],
+      [
+        "a",
+        "y"
+      ],
+      [
+        "iệ",
+        "n"
+      ],
+      [
+        "ấ",
+        "y"
+      ],
+      [
+        "à",
+        "nh"
+      ],
+      [
+        "t",
+        "ôi"
+      ],
+      [
+        "b",
+        "ạn"
+      ],
+      [
+        "v",
+        "ới"
+      ],
+      [
+        "ế",
+        "t"
+      ],
+      [
+        "a",
+        "i"
+      ],
+      [
+        "ế",
+        "n"
+      ],
+      [
+        "iế",
+        "t"
+      ],
+      [
+        "ườ",
+        "ng"
+      ],
+      [
+        "đ",
+        "ộ"
+      ],
+      [
+        "ứ",
+        "c"
+      ],
+      [
+        "s",
+        "ự"
+      ],
+      [
+        "ư",
+        "ớ"
+      ],
+      [
+        "đ",
+        "ã"
+      ],
+      [
+        "c",
+        "ả"
+      ],
+      [
+        "n",
+        "ó"
+      ],
+      [
+        "v",
+        "iệc"
+      ],
+      [
+        "ư",
+        "ơ"
+      ],
+      [
+        "đ",
+        "ó"
+      ],
+      [
+        "ờ",
+        "i"
+      ],
+      [
+        "ũ",
+        "ng"
+      ],
+      [
+        "ố",
+        "i"
+      ],
+      [
+        "m",
+        "à"
+      ],
+      [
+        "h",
+        "ọ"
+      ],
+      [
+        "s",
+        "ẽ"
+      ],
+      [
+        "h",
+        "o"
+      ],
+      [
+        "c",
+        "ũng"
+      ],
+      [
+        "ả",
+        "n"
+      ],
+      [
+        "ầ",
+        "u"
+      ],
+      [
+        "ươ",
+        "ng"
+      ],
+      [
+        "ố",
+        "ng"
+      ],
+      [
+        "à",
+        "ng"
+      ],
+      [
+        "t",
+        "i"
+      ],
+      [
+        "m",
+        "ình"
+      ],
+      [
+        "đ",
+        "ến"
+      ],
+      [
+        "l",
+        "ại"
+      ],
+      [
+        "ậ",
+        "n"
+      ],
+      [
+        "ơ",
+        "n"
+      ],
+      [
+        "a",
+        "ng"
+      ],
+      [
+        "í",
+        "nh"
+      ],
+      [
+        "â",
+        "y"
+      ],
+      [
+        "ậ",
+        "t"
+      ],
+      [
+        "c",
+        "ần"
+      ],
+      [
+        "v",
+        "ề"
+      ],
+      [
+        "à",
+        "i"
+      ],
+      [
+        "kh",
+        "i"
+      ],
+      [
+        "ướ",
+        "c"
+      ],
+      [
+        "là",
+        "m"
+      ],
+      [
+        "a",
+        "u"
+      ],
+      [
+        "t",
+        "ừ"
+      ],
+      [
+        "C",
+        "h"
+      ],
+      [
+        "d",
+        "ụ"
+      ],
+      [
+        "ph",
+        "ải"
+      ],
+      [
+        "ch",
+        "úng"
+      ],
+      [
+        "i",
+        "nh"
+      ],
+      [
+        "ă",
+        "ng"
+      ],
+      [
+        "c",
+        "ông"
+      ],
+      [
+        "ù",
+        "ng"
+      ],
+      [
+        "ph",
+        "á"
+      ],
+      [
+        "o",
+        "n"
+      ],
+      [
+        "ằ",
+        "ng"
+      ],
+      [
+        "iế",
+        "n"
+      ],
+      [
+        "ch",
+        "ỉ"
+      ],
+      [
+        "s",
+        "á"
+      ],
+      [
+        "T",
+        "h"
+      ],
+      [
+        "à",
+        "n"
+      ],
+      [
+        "ê",
+        "u"
+      ],
+      [
+        "độ",
+        "ng"
+      ],
+      [
+        "í",
+        "ch"
+      ],
+      [
+        "th",
+        "ì"
+      ],
+      [
+        "đ",
+        "ị"
+      ],
+      [
+        "iệ",
+        "u"
+      ],
+      [
+        "và",
+        "o"
+      ],
+      [
+        "ò",
+        "n"
+      ],
+      [
+        "qu",
+        "an"
+      ],
+      [
+        "ă",
+        "n"
+      ],
+      [
+        "N",
+        "h"
+      ],
+      [
+        "cá",
+        "ch"
+      ],
+      [
+        "â",
+        "u"
+      ],
+      [
+        "u",
+        "ng"
+      ],
+      [
+        "e",
+        "m"
+      ],
+      [
+        "h",
+        "ơn"
+      ],
+      [
+        "nà",
+        "o"
+      ],
+      [
+        "ậ",
+        "p"
+      ],
+      [
+        "đ",
+        "ầu"
+      ],
+      [
+        "ế",
+        "u"
+      ],
+      [
+        "ồ",
+        "i"
+      ],
+      [
+        "g",
+        "ì"
+      ],
+      [
+        "nh",
+        "iều"
+      ],
+      [
+        "ạ",
+        "o"
+      ],
+      [
+        "ộ",
+        "i"
+      ],
+      [
+        "đ",
+        "i"
+      ],
+      [
+        "ả",
+        "o"
+      ],
+      [
+        "th",
+        "ành"
+      ],
+      [
+        "th",
+        "ực"
+      ],
+      [
+        "ổ",
+        "i"
+      ],
+      [
+        "e",
+        "o"
+      ],
+      [
+        "c",
+        "on"
+      ],
+      [
+        "th",
+        "u"
+      ],
+      [
+        "ú",
+        "c"
+      ],
+      [
+        "đ",
+        "iều"
+      ],
+      [
+        "h",
+        "iện"
+      ],
+      [
+        "th",
+        "ế"
+      ],
+      [
+        "c",
+        "òn"
+      ],
+      [
+        "đị",
+        "nh"
+      ],
+      [
+        "ch",
+        "ính"
+      ],
+      [
+        "nó",
+        "i"
+      ],
+      [
+        "cá",
+        "i"
+      ],
+      [
+        "ố",
+        "n"
+      ],
+      [
+        "kh",
+        "ác"
+      ],
+      [
+        "gi",
+        "á"
+      ],
+      [
+        "iể",
+        "u"
+      ],
+      [
+        "qu",
+        "y"
+      ],
+      [
+        "th",
+        "ấy"
+      ],
+      [
+        "dụ",
+        "ng"
+      ],
+      [
+        "s",
+        "ố"
+      ],
+      [
+        "ồ",
+        "ng"
+      ],
+      [
+        "ộ",
+        "c"
+      ],
+      [
+        "ữ",
+        "a"
+      ],
+      [
+        "c",
+        "u"
+      ],
+      [
+        "a",
+        "m"
+      ],
+      [
+        "ọ",
+        "ng"
+      ],
+      [
+        "họ",
+        "c"
+      ],
+      [
+        "b",
+        "ị"
+      ],
+      [
+        "n",
+        "ên"
+      ],
+      [
+        "ch",
+        "uy"
+      ],
+      [
+        "đ",
+        "ề"
+      ],
+      [
+        "ặ",
+        "c"
+      ],
+      [
+        "ẫ",
+        "n"
+      ],
+      [
+        "b",
+        "iết"
+      ],
+      [
+        "r",
+        "ất"
+      ],
+      [
+        "ắ",
+        "c"
+      ],
+      [
+        "t",
+        "iế"
+      ],
+      [
+        "á",
+        "i"
+      ],
+      [
+        "th",
+        "ời"
+      ],
+      [
+        "m",
+        "u"
+      ],
+      [
+        "ề",
+        "n"
+      ],
+      [
+        "ư",
+        "a"
+      ],
+      [
+        "ụ",
+        "c"
+      ],
+      [
+        "ô",
+        "n"
+      ],
+      [
+        "iệ",
+        "m"
+      ],
+      [
+        "gi",
+        "a"
+      ],
+      [
+        "â",
+        "m"
+      ],
+      [
+        "K",
+        "h"
+      ],
+      [
+        "iể",
+        "m"
+      ],
+      [
+        "nh",
+        "à"
+      ],
+      [
+        "ắ",
+        "t"
+      ],
+      [
+        "đ",
+        "á"
+      ],
+      [
+        "ú",
+        "p"
+      ],
+      [
+        "ậ",
+        "y"
+      ],
+      [
+        "cả",
+        "m"
+      ],
+      [
+        "nh",
+        "ân"
+      ],
+      [
+        "ă",
+        "m"
+      ],
+      [
+        "à",
+        "y"
+      ],
+      [
+        "gi",
+        "úp"
+      ],
+      [
+        "ặ",
+        "t"
+      ],
+      [
+        "gi",
+        "ả"
+      ],
+      [
+        "ọ",
+        "i"
+      ],
+      [
+        "ượ",
+        "ng"
+      ],
+      [
+        "qu",
+        "ả"
+      ],
+      [
+        "th",
+        "ông"
+      ],
+      [
+        "n",
+        "ăng"
+      ],
+      [
+        "nh",
+        "ận"
+      ],
+      [
+        "th",
+        "eo"
+      ],
+      [
+        "ứ",
+        "ng"
+      ],
+      [
+        "nh",
+        "ất"
+      ],
+      [
+        "t",
+        "ạo"
+      ],
+      [
+        "á",
+        "n"
+      ],
+      [
+        "l",
+        "ý"
+      ],
+      [
+        "ơ",
+        "i"
+      ],
+      [
+        "ti",
+        "n"
+      ],
+      [
+        "r",
+        "ằng"
+      ],
+      [
+        "c",
+        "ùng"
+      ],
+      [
+        "N",
+        "g"
+      ],
+      [
+        "t",
+        "ư"
+      ],
+      [
+        "t",
+        "ố"
+      ],
+      [
+        "s",
+        "ống"
+      ],
+      [
+        "ò",
+        "ng"
+      ],
+      [
+        "h",
+        "àng"
+      ],
+      [
+        "ệ",
+        "n"
+      ],
+      [
+        "t",
+        "o"
+      ],
+      [
+        "h",
+        "ai"
+      ],
+      [
+        "M",
+        "ột"
+      ],
+      [
+        "đ",
+        "ang"
+      ],
+      [
+        "tr",
+        "ình"
+      ],
+      [
+        "gi",
+        "an"
+      ],
+      [
+        "ngh",
+        "ĩ"
+      ],
+      [
+        "ở",
+        "ng"
+      ],
+      [
+        "á",
+        "ch"
+      ],
+      [
+        "ạ",
+        "t"
+      ],
+      [
+        "tr",
+        "ọng"
+      ],
+      [
+        "c",
+        "ô"
+      ],
+      [
+        "ợ",
+        "p"
+      ],
+      [
+        "h",
+        "ành"
+      ],
+      [
+        "ạ",
+        "nh"
+      ],
+      [
+        "tr",
+        "ên"
+      ],
+      [
+        "h",
+        "ợp"
+      ],
+      [
+        "T",
+        "r"
+      ],
+      [
+        "ỏ",
+        "i"
+      ],
+      [
+        "m",
+        "ới"
+      ],
+      [
+        "ư",
+        "ng"
+      ],
+      [
+        "d",
+        "o"
+      ],
+      [
+        "l",
+        "u"
+      ],
+      [
+        "như",
+        "ng"
+      ],
+      [
+        "V",
+        "à"
+      ],
+      [
+        "iệ",
+        "t"
+      ],
+      [
+        "th",
+        "iết"
+      ],
+      [
+        "t",
+        "ự"
+      ],
+      [
+        "b",
+        "ảo"
+      ],
+      [
+        "h",
+        "ội"
+      ],
+      [
+        "l",
+        "o"
+      ],
+      [
+        "s",
+        "ử"
+      ],
+      [
+        "ng",
+        "ày"
+      ],
+      [
+        "ấ",
+        "n"
+      ],
+      [
+        "qu",
+        "a"
+      ],
+      [
+        "phá",
+        "t"
+      ],
+      [
+        "v",
+        "ì"
+      ],
+      [
+        "iể",
+        "n"
+      ],
+      [
+        "ấ",
+        "p"
+      ],
+      [
+        "s",
+        "au"
+      ],
+      [
+        "c",
+        "ơ"
+      ],
+      [
+        "đ",
+        "ồng"
+      ],
+      [
+        "h",
+        "ay"
+      ],
+      [
+        "cu",
+        "ộc"
+      ],
+      [
+        "x",
+        "u"
+      ],
+      [
+        "l",
+        "ớ"
+      ],
+      [
+        "ỗ",
+        "i"
+      ],
+      [
+        "h",
+        "iệu"
+      ],
+      [
+        "tr",
+        "ước"
+      ],
+      [
+        "th",
+        "ức"
+      ],
+      [
+        "d",
+        "ự"
+      ],
+      [
+        "ch",
+        "i"
+      ],
+      [
+        "tiế",
+        "p"
+      ],
+      [
+        "th",
+        "ường"
+      ],
+      [
+        "v",
+        "ậy"
+      ],
+      [
+        "iề",
+        "n"
+      ],
+      [
+        "ti",
+        "êu"
+      ],
+      [
+        "r",
+        "ồi"
+      ],
+      [
+        "t",
+        "âm"
+      ],
+      [
+        "tr",
+        "ường"
+      ],
+      [
+        "mu",
+        "ốn"
+      ],
+      [
+        "k",
+        "ết"
+      ],
+      [
+        "b",
+        "ản"
+      ],
+      [
+        "ì",
+        "m"
+      ],
+      [
+        "đ",
+        "ây"
+      ],
+      [
+        "ắ",
+        "n"
+      ],
+      [
+        "Ch",
+        "úng"
+      ],
+      [
+        "t",
+        "iên"
+      ],
+      [
+        "ọ",
+        "n"
+      ],
+      [
+        "ó",
+        "a"
+      ],
+      [
+        "l",
+        "ên"
+      ],
+      [
+        "ư",
+        "u"
+      ],
+      [
+        "h",
+        "ình"
+      ],
+      [
+        "gi",
+        "ờ"
+      ],
+      [
+        "ã",
+        "y"
+      ],
+      [
+        "ồ",
+        "n"
+      ],
+      [
+        "m",
+        "ọi"
+      ],
+      [
+        "ị",
+        "ch"
+      ],
+      [
+        "b",
+        "ao"
+      ],
+      [
+        "t",
+        "ình"
+      ],
+      [
+        "c",
+        "ứ"
+      ],
+      [
+        "phá",
+        "p"
+      ],
+      [
+        "ẳ",
+        "ng"
+      ],
+      [
+        "nh",
+        "au"
+      ],
+      [
+        "ố",
+        "c"
+      ],
+      [
+        "nh",
+        "iên"
+      ],
+      [
+        "qu",
+        "á"
+      ],
+      [
+        "ì",
+        "n"
+      ],
+      [
+        "h",
+        "iểu"
+      ],
+      [
+        "ẩ",
+        "m"
+      ],
+      [
+        "uy",
+        "ên"
+      ],
+      [
+        "lớ",
+        "n"
+      ],
+      [
+        "ạ",
+        "ng"
+      ],
+      [
+        "c",
+        "ao"
+      ],
+      [
+        "t",
+        "ìm"
+      ],
+      [
+        "tr",
+        "ở"
+      ],
+      [
+        "s",
+        "ao"
+      ],
+      [
+        "k",
+        "ế"
+      ],
+      [
+        "sá",
+        "ch"
+      ],
+      [
+        "t",
+        "ại"
+      ],
+      [
+        "Nh",
+        "ưng"
+      ],
+      [
+        "ợ",
+        "i"
+      ],
+      [
+        "đ",
+        "ối"
+      ],
+      [
+        "đ",
+        "o"
+      ],
+      [
+        "e",
+        "n"
+      ],
+      [
+        "b",
+        "ằng"
+      ],
+      [
+        "ê",
+        "m"
+      ],
+      [
+        "chuy",
+        "ện"
+      ],
+      [
+        "n",
+        "ếu"
+      ],
+      [
+        "ho",
+        "ặc"
+      ],
+      [
+        "l",
+        "ượng"
+      ],
+      [
+        "iệ",
+        "p"
+      ],
+      [
+        "to",
+        "àn"
+      ],
+      [
+        "C",
+        "ó"
+      ],
+      [
+        "ả",
+        "nh"
+      ],
+      [
+        "đ",
+        "ổi"
+      ],
+      [
+        "t",
+        "ác"
+      ],
+      [
+        "tố",
+        "t"
+      ],
+      [
+        "r",
+        "o"
+      ],
+      [
+        "s",
+        "inh"
+      ],
+      [
+        "th",
+        "ân"
+      ],
+      [
+        "r",
+        "õ"
+      ],
+      [
+        "tr",
+        "iển"
+      ],
+      [
+        "ph",
+        "ương"
+      ],
+      [
+        "v",
+        "ẫn"
+      ],
+      [
+        "uy",
+        "ết"
+      ],
+      [
+        "n",
+        "ữa"
+      ],
+      [
+        "ph",
+        "ần"
+      ],
+      [
+        "h",
+        "óa"
+      ],
+      [
+        "B",
+        "ạn"
+      ],
+      [
+        "kh",
+        "o"
+      ],
+      [
+        "n",
+        "ước"
+      ],
+      [
+        "ư",
+        "ởng"
+      ],
+      [
+        "o",
+        "ài"
+      ],
+      [
+        "ừ",
+        "ng"
+      ],
+      [
+        "á",
+        "nh"
+      ],
+      [
+        "ộ",
+        "ng"
+      ],
+      [
+        "v",
+        "iên"
+      ],
+      [
+        "th",
+        "ứ"
+      ],
+      [
+        "T",
+        "ôi"
+      ],
+      [
+        "ngh",
+        "iệm"
+      ],
+      [
+        "s",
+        "ản"
+      ],
+      [
+        "t",
+        "u"
+      ],
+      [
+        "ch",
+        "ú"
+      ],
+      [
+        "ph",
+        "ẩm"
+      ],
+      [
+        "y",
+        "êu"
+      ],
+      [
+        "t",
+        "ính"
+      ],
+      [
+        "nh",
+        "ìn"
+      ],
+      [
+        "i",
+        "n"
+      ],
+      [
+        "b",
+        "ắt"
+      ],
+      [
+        "đề",
+        "u"
+      ],
+      [
+        "gi",
+        "ới"
+      ],
+      [
+        "h",
+        "ỏi"
+      ],
+      [
+        "th",
+        "ay"
+      ],
+      [
+        "ấ",
+        "u"
+      ],
+      [
+        "ph",
+        "í"
+      ],
+      [
+        "m",
+        "ặt"
+      ],
+      [
+        "x",
+        "em"
+      ],
+      [
+        "n",
+        "ăm"
+      ],
+      [
+        "ạ",
+        "ch"
+      ],
+      [
+        "t",
+        "ập"
+      ],
+      [
+        "h",
+        "ệ"
+      ],
+      [
+        "ủ",
+        "i"
+      ],
+      [
+        "á",
+        "o"
+      ],
+      [
+        "l",
+        "iệu"
+      ],
+      [
+        "th",
+        "ích"
+      ],
+      [
+        "G",
+        "i"
+      ],
+      [
+        "c",
+        "âu"
+      ],
+      [
+        "d",
+        "ùng"
+      ],
+      [
+        "giả",
+        "m"
+      ],
+      [
+        "l",
+        "ực"
+      ],
+      [
+        "ướ",
+        "ng"
+      ],
+      [
+        "s",
+        "ức"
+      ],
+      [
+        "quy",
+        "ết"
+      ],
+      [
+        "ẩ",
+        "n"
+      ],
+      [
+        "ngh",
+        "iệp"
+      ],
+      [
+        "đ",
+        "iểm"
+      ],
+      [
+        "ắ",
+        "ng"
+      ],
+      [
+        "ch",
+        "ị"
+      ],
+      [
+        "t",
+        "ài"
+      ],
+      [
+        "ngh",
+        "ệ"
+      ],
+      [
+        "ậ",
+        "u"
+      ],
+      [
+        "t",
+        "ế"
+      ],
+      [
+        "ắ",
+        "m"
+      ],
+      [
+        "b",
+        "ất"
+      ],
+      [
+        "t",
+        "ổ"
+      ],
+      [
+        "th",
+        "am"
+      ],
+      [
+        "gi",
+        "ải"
+      ],
+      [
+        "v",
+        "ị"
+      ],
+      [
+        "l",
+        "úc"
+      ],
+      [
+        "b",
+        "ên"
+      ],
+      [
+        "b",
+        "ộ"
+      ],
+      [
+        "ho",
+        "ạt"
+      ],
+      [
+        "tr",
+        "ẻ"
+      ],
+      [
+        "t",
+        "ăng"
+      ],
+      [
+        "ch",
+        "ưa"
+      ],
+      [
+        "Kh",
+        "i"
+      ],
+      [
+        "ch",
+        "ọn"
+      ],
+      [
+        "x",
+        "ác"
+      ],
+      [
+        "ừ",
+        "a"
+      ],
+      [
+        "t",
+        "ích"
+      ],
+      [
+        "b",
+        "u"
+      ],
+      [
+        "lu",
+        "ôn"
+      ],
+      [
+        "m",
+        "ẹ"
+      ],
+      [
+        "th",
+        "ật"
+      ],
+      [
+        "c",
+        "ầu"
+      ],
+      [
+        "ó",
+        "m"
+      ],
+      [
+        "k",
+        "inh"
+      ],
+      [
+        "á",
+        "t"
+      ],
+      [
+        "v",
+        "ấn"
+      ],
+      [
+        "b",
+        "a"
+      ],
+      [
+        "ở",
+        "i"
+      ],
+      [
+        "t",
+        "iền"
+      ],
+      [
+        "th",
+        "uyết"
+      ],
+      [
+        "ch",
+        "í"
+      ],
+      [
+        "l",
+        "ời"
+      ],
+      [
+        "ầ",
+        "m"
+      ],
+      [
+        "à",
+        "o"
+      ],
+      [
+        "Đ",
+        "ể"
+      ]
+    ],
+    "language": "vi"
+  }
+}

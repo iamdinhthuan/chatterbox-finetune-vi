@@ -54,7 +54,6 @@ from chatterbox.tts import ChatterboxTTS, punc_norm, REPO_ID
 from chatterbox.models.t3.t3 import T3, T3Cond
 from chatterbox.models.t3.modules.t3_config import T3Config
 from chatterbox.models.s3tokenizer import S3_SR
-from chatterbox.utils.preprocessed_dataset import PreprocessedDataset
 
 try:
     from chatterbox.utils.training_args import CustomTrainingArguments
@@ -152,12 +151,6 @@ class DataArguments:
     )
     use_streaming: bool = field(
         default=False, metadata={"help": "Use streaming mode for datasets to reduce memory usage."}
-    )
-    use_preprocessed: bool = field(
-        default=False, metadata={"help": "Use preprocessed .pt files for 2-4x faster training."}
-    )
-    preprocessed_dir: Optional[str] = field(
-        default="./preprocessed_data", metadata={"help": "Directory containing preprocessed .pt files."}
     )
     
 
@@ -688,12 +681,8 @@ class SpeechDataCollator:
         mask_pad_speech = arange_speech[None] >= speech_lens_minus_one[:, None]  # (B, T_speech)
 
         # Mask positions t < prompt_len
-        # Prevent masking away the entire target sequence by capping the prompt mask per-sample.
-        per_sample_prompt_cap = torch.minimum(
-            torch.full_like(speech_lens_minus_one, prompt_len),
-            torch.clamp(speech_lens_minus_one - 1, min=0)
-        )
-        mask_prompt = arange_speech[None, :] < per_sample_prompt_cap[:, None]
+        mask_prompt = arange_speech[None] < prompt_len  # (1, T_speech) -> broadcast to (B, T_speech)
+        mask_prompt = mask_prompt.expand(batch_size, T_speech)
 
         # Combine masks
         mask_speech_total = mask_pad_speech | mask_prompt  # (B, T_speech)
@@ -711,7 +700,6 @@ class SpeechDataCollator:
             "t3_cond_emotion_adv": t3_cond_emotion_adv,
             "labels_text": labels_text,       # (B, max_text_len - 1) masked with -100
             "labels_speech": labels_speech,   # (B, max_speech_len - 1) masked with -100
-            "labels": labels_speech,          # Add this for Trainer compatibility - use speech labels as main
         }
 # --- Model Wrapper ---
 class T3ForFineTuning(torch.nn.Module):
@@ -747,12 +735,7 @@ class T3ForFineTuning(torch.nn.Module):
                 t3_cond_prompt_speech_tokens,
                 t3_cond_emotion_adv,
                 labels_text = None,
-                labels_speech=None,
-                labels=None):
-
-        # Use "labels" as fallback for labels_speech (for Trainer compatibility)
-        if labels_speech is None and labels is not None:
-            labels_speech = labels
+                labels_speech=None):
 
         current_t3_cond = T3Cond(
                                 speaker_emb=t3_cond_speaker_emb,
@@ -782,139 +765,6 @@ trainer_instance: Optional[Trainer] = None
 
 class SafeCheckpointTrainer(Trainer):
     """Custom trainer that handles PyTorch 2.6 checkpoint loading issues"""
-    
-    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
-        """
-        Override to ensure loss is properly extracted from tuple output.
-        """
-        outputs = model(**inputs)
-        
-        # Model returns tuple (loss, logits)
-        if isinstance(outputs, (tuple, list)):
-            loss = outputs[0]
-        else:
-            loss = outputs
-        
-        return (loss, outputs) if return_outputs else loss
-    
-    def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=None):
-        """
-        Override prediction_step for evaluation to properly return loss.
-        """
-        has_labels = all(inputs.get(k) is not None for k in self.label_names)
-        
-        # Move inputs to device
-        inputs = self._prepare_inputs(inputs)
-        
-        # Forward pass
-        with torch.no_grad():
-            outputs = model(**inputs)
-            
-            # Extract loss and logits from tuple (loss, logits)
-            if isinstance(outputs, (tuple, list)):
-                loss = outputs[0] if len(outputs) > 0 else None
-                logits = outputs[1] if len(outputs) > 1 else None
-            else:
-                loss = outputs
-                logits = None
-        
-        # Detach and move to CPU, check for NaN
-        if loss is not None and isinstance(loss, torch.Tensor):
-            loss = loss.detach()
-            # Skip NaN losses - don't let them contaminate the average
-            if torch.isnan(loss) or torch.isinf(loss):
-                if not hasattr(self, '_nan_count'):
-                    self._nan_count = 0
-                    self._nan_samples = []
-                self._nan_count += 1
-                
-                # Log detailed info for first 10 NaN samples
-                if self._nan_count <= 10:
-                    # Extract sample info - handle both tensor and scalar
-                    text_len = inputs.get('text_token_lens', torch.tensor(0))
-                    if isinstance(text_len, torch.Tensor):
-                        text_len = text_len.item() if text_len.numel() == 1 else text_len[0].item()
-                    
-                    speech_len = inputs.get('speech_token_lens', torch.tensor(0))
-                    if isinstance(speech_len, torch.Tensor):
-                        speech_len = speech_len.item() if speech_len.numel() == 1 else speech_len[0].item()
-                    
-                    # audio_path and text might not be in inputs (not passed by collator)
-                    # Try to extract from batch if available
-                    audio_path = 'unknown (not in batch)'
-                    text = 'N/A (not in batch)'
-                    
-                    logger.warning(
-                        f"⚠️ NaN/Inf loss #{self._nan_count}:\n"
-                        f"  Audio: {audio_path}\n"
-                        f"  Text: {text}\n"
-                        f"  Text tokens: {text_len}\n"
-                        f"  Speech tokens: {speech_len}\n"
-                        f"  Loss value: {loss.item() if isinstance(loss, torch.Tensor) else loss}"
-                    )
-                    
-                    self._nan_samples.append({
-                        'audio_path': audio_path,
-                        'text_len': text_len,
-                        'speech_len': speech_len,
-                        'loss': loss.item()
-                    })
-                
-                loss = None  # Return None so Trainer skips this batch
-        
-        if prediction_loss_only:
-            return (loss, None, None)
-        
-        # Detach logits
-        if logits is not None and isinstance(logits, torch.Tensor):
-            logits = logits.detach()
-        
-        # Return (loss, logits, labels)
-        return (loss, logits, None)
-    
-    def evaluate(self, *args, **kwargs):
-        """Override evaluate to log NaN summary after evaluation"""
-        # Reset NaN counter before evaluation
-        if hasattr(self, '_nan_count'):
-            old_nan_count = self._nan_count
-            old_nan_samples = getattr(self, '_nan_samples', [])
-            self._nan_count = 0
-            self._nan_samples = []
-        
-        # Run evaluation
-        result = super().evaluate(*args, **kwargs)
-        
-        # Log summary after evaluation
-        if hasattr(self, '_nan_count') and self._nan_count > 0:
-            logger.warning(
-                f"\n{'='*60}\n"
-                f"📊 EVALUATION SUMMARY:\n"
-                f"  Total NaN/Inf batches: {self._nan_count}\n"
-                f"  Evaluation dataset size: {len(self.eval_dataset)}\n"
-                f"  NaN ratio: {self._nan_count / len(self.eval_dataset) * 100:.2f}%\n"
-            )
-            
-            if self._nan_samples:
-                logger.warning("🔍 Sample NaN cases (first 10):")
-                for i, sample in enumerate(self._nan_samples[:10], 1):
-                    logger.warning(
-                        f"  {i}. {sample['audio_path']}\n"
-                        f"     Text len: {sample['text_len']}, Speech len: {sample['speech_len']}"
-                    )
-                
-                # Analyze patterns
-                if len(self._nan_samples) >= 3:
-                    avg_text_len = sum(s['text_len'] for s in self._nan_samples) / len(self._nan_samples)
-                    avg_speech_len = sum(s['speech_len'] for s in self._nan_samples) / len(self._nan_samples)
-                    logger.warning(
-                        f"\n📈 PATTERN ANALYSIS:\n"
-                        f"  Avg text len in NaN samples: {avg_text_len:.1f}\n"
-                        f"  Avg speech len in NaN samples: {avg_speech_len:.1f}\n"
-                    )
-            
-            logger.warning(f"{'='*60}\n")
-        
-        return result
     
     def _load_rng_state(self, checkpoint):
         """Override to handle weights_only loading issues"""
@@ -1350,17 +1200,7 @@ def run_training(model_args, data_args, training_args):
             )
     else:
         # Use regular Dataset for non-streaming
-        if data_args.use_preprocessed:
-            # Use preprocessed dataset for faster training
-            logger.info(f"🚀 Using preprocessed dataset from {data_args.preprocessed_dir}")
-            train_dataset = PreprocessedDataset(
-                preprocessed_dir=data_args.preprocessed_dir,
-                max_text_len=data_args.max_text_len,
-                max_speech_len=data_args.max_speech_len,
-                split='train',
-                eval_split_size=data_args.eval_split_size
-            )
-        elif model_args.model_config:
+        if model_args.model_config:
             train_dataset = SpeechFineTuningDataset(
                 data_args,
                 chatterbox_t3_config_instance,
@@ -1407,17 +1247,7 @@ def run_training(model_args, data_args, training_args):
                     transcripts=transcripts
                 )
         else:
-            if data_args.use_preprocessed:
-                # Use validation split of preprocessed dataset
-                logger.info(f"📊 Using preprocessed dataset for validation (split={data_args.eval_split_size})")
-                eval_dataset = PreprocessedDataset(
-                    preprocessed_dir=data_args.preprocessed_dir,
-                    max_text_len=data_args.max_text_len,
-                    max_speech_len=data_args.max_speech_len,
-                    split='val',
-                    eval_split_size=data_args.eval_split_size
-                )
-            elif model_args.model_config:
+            if model_args.model_config:
                 eval_dataset = SpeechFineTuningDataset(
                     data_args,
                     chatterbox_t3_config_instance,
@@ -1472,7 +1302,7 @@ def run_training(model_args, data_args, training_args):
         callbacks=callbacks if callbacks else None
     )
 
-    if training_args.label_names is None: trainer_instance.label_names = ["labels"]
+    if training_args.label_names is None: trainer_instance.label_names = ["lables"]
 
 
     if training_args.do_train:

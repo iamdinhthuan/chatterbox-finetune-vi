@@ -31,17 +31,13 @@ def main():
 
     # Optional training arguments
     parser.add_argument("--output_dir", type=str, default="./checkpoints/vietnamese", help="Output directory for checkpoints")
-    parser.add_argument("--batch_size", type=int, default=8, help="Batch size (default: 8)")
+    parser.add_argument("--batch_size", type=int, default=8, help="Batch size (default: 4)")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1, help="Gradient accumulation steps (default: 1)")
-    parser.add_argument("--epochs", type=int, default=10, help="Number of epochs (default: 10, recommended: 5-10 to avoid overfitting)")
-    parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate (default: 1e-5)")
+    parser.add_argument("--epochs", type=int, default=3, help="Number of epochs (default: 10)")
+    parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate (default: 5e-5)")
     parser.add_argument("--save_steps", type=int, default=5000, help="Save checkpoint every N steps (default: 5000)")
     parser.add_argument("--eval_steps", type=int, default=5000, help="Evaluate every N steps (default: 5000)")
     parser.add_argument("--max_steps", type=int, default=-1, help="Maximum number of training steps (default: -1 for full training)")
-    
-    # Preprocessing optimization (>4x faster training)
-    parser.add_argument("--use_preprocessed", action="store_true", help="Use preprocessed .pt files for faster training (recommended)")
-    parser.add_argument("--preprocessed_dir", type=str, default="./preprocessed_data", help="Directory containing preprocessed .pt files")
 
     args = parser.parse_args()
 
@@ -85,8 +81,11 @@ def main():
     tokenizer_path = Path("VietnameseTokenizer/tokenizer.json")
     if not tokenizer_path.exists():
         print("❌ Vietnamese tokenizer not found!")
-        print("   Please run: python train_tokenizer_from_corpus.py metadata.csv")
-        return
+        print("   Creating Vietnamese tokenizer...")
+        os.system("python create_vietnamese_tokenizer.py")
+        if not tokenizer_path.exists():
+            print("❌ Failed to create tokenizer!")
+            return
     
     print("="*80)
     print("VIETNAMESE TTS TRAINING")
@@ -103,27 +102,11 @@ def main():
     print(f"💾 Output: {args.output_dir}")
     print(f"🔢 Batch size: {args.batch_size}")
     print(f"📈 Learning rate: {args.lr}")
-    print(f"🔄 Epochs: {args.epochs} (recommended: 5-10)")
+    print(f"🔄 Epochs: {args.epochs}")
     if args.max_steps > 0:
         print(f"⚡ Max steps: {args.max_steps} (will override epochs)")
     print(f"💾 Save every: {args.save_steps} steps")
     print(f"📊 Eval every: {args.eval_steps} steps")
-    
-    # Preprocessing info
-    if args.use_preprocessed:
-        preprocessed_dir = Path(args.preprocessed_dir)
-        if preprocessed_dir.exists():
-            print(f"\n🚀 Using preprocessed data: {preprocessed_dir}")
-            print(f"   Expected speedup: 2-4x faster training!")
-        else:
-            print(f"\n❌ Preprocessed directory not found: {preprocessed_dir}")
-            print(f"   Please run: python preprocess_dataset.py --csv {csv_path}")
-            return
-    else:
-        print(f"\n⚠️  Not using preprocessing. Consider preprocessing for 2-4x speedup:")
-        print(f"   python preprocess_dataset.py --csv {csv_path} --add_silence")
-        print(f"   python train.py --use_preprocessed ...")
-    
     print("="*80 + "\n")
 
     # Count samples
@@ -205,8 +188,6 @@ def main():
             preprocessing_num_workers=8,
             ignore_verifications=True,
             use_streaming=False,
-            use_preprocessed=args.use_preprocessed,
-            preprocessed_dir=args.preprocessed_dir,
         )
     else:
         data_args = DataArguments(
@@ -214,15 +195,13 @@ def main():
             audio_dir=str(audio_dir),
             dataset_dir=None,
             dataset_name=None,
-            eval_split_size=0.01,
+            eval_split_size=0,
             max_text_len=256,
             max_speech_len=1200,
             audio_prompt_duration_s=3.0,
             preprocessing_num_workers=8,
             ignore_verifications=True,
             use_streaming=False,
-            use_preprocessed=args.use_preprocessed,
-            preprocessed_dir=args.preprocessed_dir,
         )
 
     # Create training arguments
@@ -233,11 +212,11 @@ def main():
         num_train_epochs=args.epochs,
         max_steps=args.max_steps if args.max_steps > 0 else -1,
         per_device_train_batch_size=args.batch_size,
-        per_device_eval_batch_size=1,
+        per_device_eval_batch_size=args.batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
 
         learning_rate=args.lr,
-        warmup_steps=10000,
+        warmup_steps=5000,
         lr_scheduler_type="cosine",
 
         optim="adamw_torch",
@@ -248,17 +227,16 @@ def main():
         logging_steps=100,
         logging_first_step=True,
         do_train=True,
-        do_eval=True,
+        do_eval=False,
         eval_strategy="steps",
         eval_steps=args.eval_steps,
+
         save_strategy="steps",
         save_steps=args.save_steps,
         save_total_limit=3,
         data_seed=42,
         bf16=True,
         dataloader_num_workers=8,
-        warmup_ratio=0.05,
-
         dataloader_persistent_workers=True,
         seed=42,
         report_to=["tensorboard"],
