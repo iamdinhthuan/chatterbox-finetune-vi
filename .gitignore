@@ -84,7 +84,7 @@ desktop.ini
 *.log
 
 # Audio formats (if training data)
-*.wav
+
 *.mp3
 *.flac
 *.ogg
@@ -103,3 +103,15 @@ htmlcov/
 !tokenizer.json
 !VietnameseTokenizer/tokenizer.json
 !VietnameseTokenizer/vocab_list.txt
+vietnamese/
+vietnamese/*.json
+vietnamese/*.txt
+vietnamese/special_tokens_map.json
+vietnamese/tokenizer_config.json
+vietnamese/merges.txt
+vietnamese/vocab.txt
+vietnamese/model_index.json
+vietnamese/pytorch_model.bin
+vietnamese/config.json
+vietnamese/pretrained_model_download
+vietnamese/checkpoint-100000
