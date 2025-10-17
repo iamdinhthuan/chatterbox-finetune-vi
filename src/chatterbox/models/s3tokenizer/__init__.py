@@ -17,6 +17,10 @@ def drop_invalid_tokens(x):
     """Drop SoS and EoS - but be more conservative for Vietnamese"""
     assert len(x.shape) == 1 or (len(x.shape) == 2 and x.shape[0] == 1), "only batch size of one allowed for now"
     
+    # Flatten if needed (for cross-platform compatibility)
+    if len(x.shape) == 2:
+        x = x.squeeze(0)
+    
     # Debug logging
     import logging
     logging.debug(f"drop_invalid_tokens input shape: {x.shape}, len: {len(x)}")

@@ -124,6 +124,7 @@ def main():
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducible generation")
     parser.add_argument("--min_tokens", type=int, default=30, help="Minimum speech tokens to generate (default: 30)")
     parser.add_argument("--verbose", action="store_true", help="Enable debug logging")
+    parser.add_argument("--no_drop_tokens", action="store_true", help="Disable drop_invalid_tokens (for debugging)")
     
     args = parser.parse_args()
     
