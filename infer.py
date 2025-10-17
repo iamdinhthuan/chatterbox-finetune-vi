@@ -123,8 +123,13 @@ def main():
     parser.add_argument("--exaggeration", type=float, default=0.5, help="Emotion exaggeration (default: 0.5)")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducible generation")
     parser.add_argument("--min_tokens", type=int, default=30, help="Minimum speech tokens to generate (default: 30)")
+    parser.add_argument("--verbose", action="store_true", help="Enable debug logging")
     
     args = parser.parse_args()
+    
+    # Setup logging for debug
+    import logging
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING)
     
     # Set random seed if provided
     if args.seed is not None:
