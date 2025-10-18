@@ -2,12 +2,23 @@
 Pre-compute embeddings and tokens for faster training
 
 Usage:
+    # With GPU (fastest, recommended for single worker)
     python preprocess_dataset.py \
         --metadata_csv ./metadata.csv \
         --audio_dir ./wavs \
         --output_dir ./data/preprocessed \
         --checkpoint ./vietnamese/pretrained_model_download \
-        --num_workers 4
+        --device cuda \
+        --num_workers 1
+    
+    # With CPU and parallel processing (if GPU memory limited)
+    python preprocess_dataset.py \
+        --metadata_csv ./metadata.csv \
+        --audio_dir ./wavs \
+        --output_dir ./data/preprocessed \
+        --checkpoint ./vietnamese/pretrained_model_download \
+        --device cpu \
+        --num_workers 8
 """
 
 import argparse
@@ -63,7 +74,7 @@ def punc_norm(text: str) -> str:
 
 def process_single_item(args):
     """Process a single audio-text pair"""
-    idx, item, audio_dir, output_dir, checkpoint_dir, config = args
+    idx, item, audio_dir, output_dir, checkpoint_dir, config, device = args
     
     try:
         # Parse item
@@ -114,15 +125,16 @@ def process_single_item(args):
         
         # Load model in this process (lazy loading)
         if not hasattr(process_single_item, 'model'):
-            print(f"[Worker {idx%4}] Loading model...")
-            process_single_item.model = ChatterboxTTS.from_local(checkpoint_dir, device='cpu')
+            print(f"[Worker {idx%4}] Loading model on {device}...")
+            process_single_item.model = ChatterboxTTS.from_local(checkpoint_dir, device=device)
             process_single_item.config = config
+            process_single_item.device = device
         
         model = process_single_item.model
         
-        # 1. Compute voice embedding
+        # 1. Compute voice embedding (on device)
         speaker_emb_np = model.ve.embeds_from_wavs([wav_16k], sample_rate=16000)
-        speaker_emb = torch.from_numpy(speaker_emb_np[0])
+        speaker_emb = torch.from_numpy(speaker_emb_np[0]).cpu()  # Move to CPU for saving
         
         # 2. Tokenize text
         normalized_text = punc_norm(text)
@@ -136,12 +148,12 @@ def process_single_item(args):
             text_tokens = text_tokens[:max_text_len-1]
             text_tokens = torch.cat([text_tokens, torch.tensor([config['stop_text_token']])])
         
-        # 3. Tokenize speech
+        # 3. Tokenize speech (on device)
         raw_speech_tokens_batch, speech_token_lengths_batch = model.s3gen.tokenizer.forward([wav_16k])
         if raw_speech_tokens_batch is None:
             return idx, False, "Speech tokenization failed"
         
-        raw_speech_tokens = raw_speech_tokens_batch.squeeze(0)[:speech_token_lengths_batch.squeeze(0).item()]
+        raw_speech_tokens = raw_speech_tokens_batch.squeeze(0)[:speech_token_lengths_batch.squeeze(0).item()].cpu()
         speech_tokens = F.pad(raw_speech_tokens, (1, 0), value=config['start_speech_token'])
         speech_tokens = F.pad(speech_tokens, (0, 1), value=config['stop_speech_token'])
         
@@ -165,7 +177,7 @@ def process_single_item(args):
                 if cond_prompt_tokens_batch is None:
                     cond_prompt_speech_tokens = torch.zeros(speech_cond_prompt_len, dtype=torch.long)
                 else:
-                    cond_prompt_speech_tokens = cond_prompt_tokens_batch.squeeze(0)
+                    cond_prompt_speech_tokens = cond_prompt_tokens_batch.squeeze(0).cpu()  # Move to CPU
             except:
                 cond_prompt_speech_tokens = torch.zeros(speech_cond_prompt_len, dtype=torch.long)
         
@@ -204,6 +216,7 @@ def main():
     parser.add_argument("--output_dir", type=str, required=True, help="Output directory for preprocessed files")
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to ChatterboxTTS checkpoint")
     parser.add_argument("--num_workers", type=int, default=1, help="Number of parallel workers (default: 1)")
+    parser.add_argument("--device", type=str, default="cuda", help="Device to use: cuda, cpu, or mps (default: cuda)")
     parser.add_argument("--start_idx", type=int, default=0, help="Start from this index (for resuming)")
     parser.add_argument("--end_idx", type=int, default=None, help="End at this index (optional)")
     
@@ -213,6 +226,20 @@ def main():
     audio_dir = Path(args.audio_dir)
     output_dir = Path(args.output_dir)
     checkpoint_dir = Path(args.checkpoint)
+    device = args.device
+    
+    # Auto-detect device if needed
+    if device == 'cuda' and not torch.cuda.is_available():
+        print("⚠️  CUDA not available, falling back to CPU")
+        device = 'cpu'
+    
+    # Warn about GPU memory with multiple workers
+    if device == 'cuda' and args.num_workers > 1:
+        print("⚠️  WARNING: Using GPU with multiple workers will load model multiple times!")
+        print("   This may cause GPU OOM. Recommended: num_workers=1 with GPU")
+        print("   Or use CPU with num_workers>1 for parallel processing.")
+        import time
+        time.sleep(3)
     
     # Validate paths
     if not metadata_path.exists():
@@ -229,6 +256,7 @@ def main():
     # Load metadata
     print(f"📁 Metadata CSV: {metadata_path}")
     print(f"📁 Audio directory: {audio_dir}")
+    print(f"🖥️  Device: {device}")
     
     with open(metadata_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
@@ -270,7 +298,7 @@ def main():
     
     # Prepare arguments for workers
     tasks = [
-        (args.start_idx + i, line, str(audio_dir), str(output_dir), str(checkpoint_dir), config)
+        (args.start_idx + i, line, str(audio_dir), str(output_dir), str(checkpoint_dir), config, device)
         for i, line in enumerate(lines)
     ]
     

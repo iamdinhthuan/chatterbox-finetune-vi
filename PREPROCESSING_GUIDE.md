@@ -13,6 +13,16 @@ Training bị **CPU bottleneck** vì mỗi sample phải:
 
 ## Performance
 
+### Preprocessing Speed:
+
+| Method | Device | Workers | Speed |
+|--------|--------|---------|-------|
+| **GPU (Recommended)** | CUDA | 1 | **5-10x faster than CPU** ⚡ |
+| CPU Multi-core | CPU | 8 | 2-3x faster than single CPU |
+| CPU Single-core | CPU | 1 | 1x (baseline) |
+
+### Training Speed After Preprocessing:
+
 | Method | GPU Util | Training Speed | Disk Space |
 |--------|----------|----------------|------------|
 | On-the-fly | 40-60% | 1x (baseline) | 0 |
@@ -23,13 +33,30 @@ Training bị **CPU bottleneck** vì mỗi sample phải:
 
 ### 1. Preprocessing Data
 
+#### Option A: GPU (Nhanh nhất - Khuyến nghị)
+
 ```bash
 python preprocess_dataset.py \
     --metadata_csv ./metadata.csv \
     --audio_dir ./wavs \
     --output_dir ./data/preprocessed \
     --checkpoint ./vietnamese/pretrained_model_download \
-    --num_workers 4
+    --device cuda \
+    --num_workers 1
+```
+
+⚡ **GPU sẽ nhanh hơn CPU 5-10x!**
+
+#### Option B: CPU với Multi-processing
+
+```bash
+python preprocess_dataset.py \
+    --metadata_csv ./metadata.csv \
+    --audio_dir ./wavs \
+    --output_dir ./data/preprocessed \
+    --checkpoint ./vietnamese/pretrained_model_download \
+    --device cpu \
+    --num_workers 8
 ```
 
 **Parameters:**
@@ -37,7 +64,10 @@ python preprocess_dataset.py \
 - `--audio_dir`: Thư mục chứa audio files (bắt buộc)
 - `--output_dir`: Thư mục output cho .pt files (bắt buộc)
 - `--checkpoint`: Path đến pretrained model (bắt buộc)
-- `--num_workers`: Số CPU cores dùng (mặc định 1, khuyến nghị 4-8)
+- `--device`: Device để xử lý - `cuda`, `cpu`, hoặc `mps` (mặc định: cuda)
+- `--num_workers`: Số workers song song (mặc định 1)
+  - **GPU**: Dùng `num_workers=1` (1 GPU worker)
+  - **CPU**: Dùng `num_workers=4-8` (parallel CPU cores)
 - `--start_idx`: Bắt đầu từ index (để resume nếu bị gián đoạn)
 - `--end_idx`: Kết thúc tại index (optional)
 
@@ -135,14 +165,15 @@ Nếu bị gián đoạn:
 # Check how many processed
 ls data/preprocessed/*.pt | wc -l
 
-# Resume from index 500
+# Resume from index 500 (with GPU)
 python preprocess_dataset.py \
     --metadata_csv ./metadata.csv \
     --audio_dir ./wavs \
     --output_dir ./data/preprocessed \
     --checkpoint ./vietnamese/pretrained_model_download \
+    --device cuda \
     --start_idx 500 \
-    --num_workers 4
+    --num_workers 1
 ```
 
 ### Preprocessing Large Dataset
@@ -286,13 +317,14 @@ cat ./data/preprocessed/preprocessing_summary.json
 ## Complete Example
 
 ```bash
-# 1. Preprocessing (1 lần, ~30 phút cho 10K samples)
+# 1. Preprocessing (1 lần, ~5-10 phút cho 10K samples với GPU)
 python preprocess_dataset.py \
     --metadata_csv ./data/vietnamese/metadata.csv \
     --audio_dir ./data/vietnamese/wavs \
     --output_dir ./data/preprocessed \
     --checkpoint ./vietnamese/pretrained_model_download \
-    --num_workers 8
+    --device cuda \
+    --num_workers 1
 
 # 2. Training (4-5x nhanh hơn!)
 python src/finetune_t3_thai.py \
