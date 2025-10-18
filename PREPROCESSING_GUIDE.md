@@ -25,16 +25,18 @@ Training bị **CPU bottleneck** vì mỗi sample phải:
 
 ```bash
 python preprocess_dataset.py \
-    --data_dir ./data/vietnamese \
+    --metadata_csv ./metadata.csv \
+    --audio_dir ./wavs \
     --output_dir ./data/preprocessed \
     --checkpoint ./vietnamese/pretrained_model_download \
     --num_workers 4
 ```
 
 **Parameters:**
-- `--data_dir`: Thư mục chứa `metadata.csv` và audio files
-- `--output_dir`: Thư mục output cho .pt files
-- `--checkpoint`: Path đến pretrained model
+- `--metadata_csv`: Path đến file CSV metadata (bắt buộc)
+- `--audio_dir`: Thư mục chứa audio files (bắt buộc)
+- `--output_dir`: Thư mục output cho .pt files (bắt buộc)
+- `--checkpoint`: Path đến pretrained model (bắt buộc)
 - `--num_workers`: Số CPU cores dùng (mặc định 1, khuyến nghị 4-8)
 - `--start_idx`: Bắt đầu từ index (để resume nếu bị gián đoạn)
 - `--end_idx`: Kết thúc tại index (optional)
@@ -43,14 +45,18 @@ python preprocess_dataset.py \
 
 ```
 audio_path|text
-data/audio/001.wav|Xin chào các bạn.
-data/audio/002.wav|Đây là bài test.
-/absolute/path/003.wav|Có thể dùng absolute path.
+001.wav|Xin chào các bạn.
+002.wav|Đây là bài test.
+subfolder/003.wav|Audio trong subfolder.
+/absolute/path/004.wav|Có thể dùng absolute path.
 ```
 
 - Delimiter: `|`
 - Columns: `audio_path|text`
-- Audio path: relative (to data_dir) hoặc absolute
+- Audio path: 
+  - Relative path: Relative đến `--audio_dir` (ví dụ: `001.wav`, `subfolder/003.wav`)
+  - Absolute path: Full path (`/absolute/path/004.wav`)
+- Header line tự động bỏ qua nếu có từ "audio" hoặc "transcript"
 
 ### 3. Training với Preprocessed Data
 
@@ -131,7 +137,8 @@ ls data/preprocessed/*.pt | wc -l
 
 # Resume from index 500
 python preprocess_dataset.py \
-    --data_dir ./data/vietnamese \
+    --metadata_csv ./metadata.csv \
+    --audio_dir ./wavs \
     --output_dir ./data/preprocessed \
     --checkpoint ./vietnamese/pretrained_model_download \
     --start_idx 500 \
@@ -242,7 +249,7 @@ python preprocess_dataset.py --num_workers 1 ...
 ### Audio files not found
 
 Check paths trong metadata.csv:
-- Dùng relative path: `audio/001.wav` (relative to data_dir)
+- Dùng relative path: `001.wav` hoặc `subfolder/001.wav` (relative to --audio_dir)
 - Hoặc absolute path: `/full/path/to/001.wav`
 
 ## Validation
@@ -281,7 +288,8 @@ cat ./data/preprocessed/preprocessing_summary.json
 ```bash
 # 1. Preprocessing (1 lần, ~30 phút cho 10K samples)
 python preprocess_dataset.py \
-    --data_dir ./data/vietnamese \
+    --metadata_csv ./data/vietnamese/metadata.csv \
+    --audio_dir ./data/vietnamese/wavs \
     --output_dir ./data/preprocessed \
     --checkpoint ./vietnamese/pretrained_model_download \
     --num_workers 8
@@ -307,7 +315,7 @@ watch -n 1 nvidia-smi
 ## Checklist
 
 - [ ] Đã có `metadata.csv` với format đúng
-- [ ] Audio files có thể access được từ data_dir
+- [ ] Audio files có thể access được từ --audio_dir
 - [ ] Checkpoint model hoạt động
 - [ ] Có đủ disk space (~2GB/1000 samples)
 - [ ] Đã set `--num_workers` phù hợp

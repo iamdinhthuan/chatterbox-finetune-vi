@@ -3,7 +3,8 @@ Pre-compute embeddings and tokens for faster training
 
 Usage:
     python preprocess_dataset.py \
-        --data_dir ./data/vietnamese \
+        --metadata_csv ./metadata.csv \
+        --audio_dir ./wavs \
         --output_dir ./data/preprocessed \
         --checkpoint ./vietnamese/pretrained_model_download \
         --num_workers 4
@@ -62,7 +63,7 @@ def punc_norm(text: str) -> str:
 
 def process_single_item(args):
     """Process a single audio-text pair"""
-    idx, item, data_dir, output_dir, checkpoint_dir, config = args
+    idx, item, audio_dir, output_dir, checkpoint_dir, config = args
     
     try:
         # Parse item
@@ -75,7 +76,7 @@ def process_single_item(args):
         
         # Make absolute path
         if not Path(audio_path).is_absolute():
-            audio_path = Path(data_dir) / audio_path
+            audio_path = Path(audio_dir) / audio_path
         else:
             audio_path = Path(audio_path)
         
@@ -198,28 +199,36 @@ def process_single_item(args):
 
 def main():
     parser = argparse.ArgumentParser(description="Pre-compute embeddings and tokens for training")
-    parser.add_argument("--data_dir", type=str, required=True, help="Directory containing metadata.csv and audio files")
+    parser.add_argument("--metadata_csv", type=str, required=True, help="Path to metadata CSV file")
+    parser.add_argument("--audio_dir", type=str, required=True, help="Directory containing audio files")
     parser.add_argument("--output_dir", type=str, required=True, help="Output directory for preprocessed files")
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to ChatterboxTTS checkpoint")
-    parser.add_argument("--metadata_file", type=str, default="metadata.csv", help="Metadata filename (default: metadata.csv)")
     parser.add_argument("--num_workers", type=int, default=1, help="Number of parallel workers (default: 1)")
     parser.add_argument("--start_idx", type=int, default=0, help="Start from this index (for resuming)")
     parser.add_argument("--end_idx", type=int, default=None, help="End at this index (optional)")
     
     args = parser.parse_args()
     
-    data_dir = Path(args.data_dir)
+    metadata_path = Path(args.metadata_csv)
+    audio_dir = Path(args.audio_dir)
     output_dir = Path(args.output_dir)
     checkpoint_dir = Path(args.checkpoint)
+    
+    # Validate paths
+    if not metadata_path.exists():
+        print(f"❌ Metadata CSV not found: {metadata_path}")
+        return
+    
+    if not audio_dir.exists():
+        print(f"❌ Audio directory not found: {audio_dir}")
+        return
     
     # Create output directory
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Load metadata
-    metadata_path = data_dir / args.metadata_file
-    if not metadata_path.exists():
-        print(f"❌ Metadata not found: {metadata_path}")
-        return
+    print(f"📁 Metadata CSV: {metadata_path}")
+    print(f"📁 Audio directory: {audio_dir}")
     
     with open(metadata_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
@@ -261,7 +270,7 @@ def main():
     
     # Prepare arguments for workers
     tasks = [
-        (args.start_idx + i, line, str(data_dir), str(output_dir), str(checkpoint_dir), config)
+        (args.start_idx + i, line, str(audio_dir), str(output_dir), str(checkpoint_dir), config)
         for i, line in enumerate(lines)
     ]
     
