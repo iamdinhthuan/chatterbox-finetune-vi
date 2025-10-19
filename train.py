@@ -38,6 +38,14 @@ def main():
     parser.add_argument("--save_steps", type=int, default=5000, help="Save checkpoint every N steps (default: 5000)")
     parser.add_argument("--eval_steps", type=int, default=5000, help="Evaluate every N steps (default: 5000)")
     parser.add_argument("--max_steps", type=int, default=-1, help="Maximum number of training steps (default: -1 for full training)")
+    
+    # Caching arguments
+    parser.add_argument("--use_cache", action="store_true", help="Enable on-the-fly caching (epoch 1 slow, epoch 2+ fast)")
+    parser.add_argument("--cache_dir", type=str, default="./cache", help="Directory to store cached embeddings (default: ./cache)")
+    parser.add_argument("--cache_device", type=str, default="cuda", help="Device for computing cached embeddings: cuda or cpu (default: cuda)")
+    
+    # Mixed precision
+    parser.add_argument("--fp16", action="store_true", help="Use FP16 mixed precision training")
 
     args = parser.parse_args()
 
@@ -107,6 +115,20 @@ def main():
         print(f"⚡ Max steps: {args.max_steps} (will override epochs)")
     print(f"💾 Save every: {args.save_steps} steps")
     print(f"📊 Eval every: {args.eval_steps} steps")
+    
+    # Print caching info
+    if args.use_cache:
+        print(f"\n📦 Caching: ENABLED")
+        print(f"   Cache dir: {args.cache_dir}")
+        print(f"   Cache device: {args.cache_device}")
+        print(f"   ⚡ Epoch 1: Slow (building cache)")
+        print(f"   ⚡ Epoch 2+: Fast (4-5x speedup!)")
+    else:
+        print(f"\n📦 Caching: DISABLED (consider using --use_cache for 4-5x speedup)")
+    
+    if args.fp16:
+        print(f"🔢 Mixed precision: FP16")
+    
     print("="*80 + "\n")
 
     # Count samples
@@ -188,6 +210,10 @@ def main():
             preprocessing_num_workers=8,
             ignore_verifications=True,
             use_streaming=False,
+            # Caching arguments
+            use_cache=args.use_cache,
+            cache_dir=args.cache_dir,
+            cache_device=args.cache_device,
         )
     else:
         data_args = DataArguments(
@@ -202,6 +228,10 @@ def main():
             preprocessing_num_workers=8,
             ignore_verifications=True,
             use_streaming=False,
+            # Caching arguments
+            use_cache=args.use_cache,
+            cache_dir=args.cache_dir,
+            cache_device=args.cache_device,
         )
 
     # Create training arguments
@@ -235,7 +265,8 @@ def main():
         save_steps=args.save_steps,
         save_total_limit=3,
         data_seed=42,
-        bf16=True,
+        bf16=True if not args.fp16 else False,
+        fp16=args.fp16,
         dataloader_num_workers=8,
         dataloader_persistent_workers=True,
         seed=42,

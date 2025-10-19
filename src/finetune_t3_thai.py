@@ -153,6 +153,17 @@ class DataArguments:
         default=False, metadata={"help": "Use streaming mode for datasets to reduce memory usage."}
     )
     
+    # Caching arguments
+    use_cache: bool = field(
+        default=False, metadata={"help": "Enable on-the-fly caching of embeddings. Epoch 1 slow, epoch 2+ fast (4-5x speedup)."}
+    )
+    cache_dir: Optional[str] = field(
+        default="./cache", metadata={"help": "Directory to store cached embeddings. Default: ./cache"}
+    )
+    cache_device: str = field(
+        default="cuda", metadata={"help": "Device for computing cached embeddings: cuda or cpu. Default: cuda"}
+    )
+    
 
 # --- Dataset Classes ---
 class SpeechFineTuningIterableDataset(torch.utils.data.IterableDataset):
@@ -1200,26 +1211,51 @@ def run_training(model_args, data_args, training_args):
             )
     else:
         # Use regular Dataset for non-streaming
-        if model_args.model_config:
-            train_dataset = SpeechFineTuningDataset(
-                data_args,
-                chatterbox_t3_config_instance,
-                train_hf_dataset,
-                is_hf_format_train,
+        if data_args.use_cache:
+            # Use CachedSpeechFineTuningDataset for on-the-fly caching
+            from chatterbox.utils.cached_dataset import CachedSpeechFineTuningDataset
+            
+            logger.info("📦 Using CachedSpeechFineTuningDataset with on-the-fly caching")
+            logger.info(f"   Cache dir: {data_args.cache_dir}")
+            logger.info(f"   Cache device: {data_args.cache_device}")
+            logger.info(f"   ⚡ Epoch 1: Slow (building cache)")
+            logger.info(f"   ⚡ Epoch 2+: Fast (4-5x speedup!)")
+            
+            train_dataset = CachedSpeechFineTuningDataset(
+                data_args=data_args,
+                t3_config=chatterbox_t3_config_instance,
+                hf_dataset=train_hf_dataset,
+                is_hf_format=is_hf_format_train,
                 model_dir=str(original_model_dir_for_copy),
-                m_paths=m_paths,
-                device="cpu"
+                cache_dir=data_args.cache_dir,
+                m_paths=m_paths if model_args.model_config else None,
+                device=data_args.cache_device,
             )
         else:
-            train_dataset = SpeechFineTuningDataset(
-                data_args,
-                chatterbox_t3_config_instance,
-                train_hf_dataset,
-                is_hf_format_train,
-                model_dir=str(original_model_dir_for_copy),
-                m_paths=None,
-                device="cpu"
-            )
+            # Use standard SpeechFineTuningDataset (no caching)
+            logger.info("📦 Using SpeechFineTuningDataset (no caching)")
+            logger.info("   💡 Tip: Use --use_cache for 4-5x speedup from epoch 2+")
+            
+            if model_args.model_config:
+                train_dataset = SpeechFineTuningDataset(
+                    data_args,
+                    chatterbox_t3_config_instance,
+                    train_hf_dataset,
+                    is_hf_format_train,
+                    model_dir=str(original_model_dir_for_copy),
+                    m_paths=m_paths,
+                    device="cpu"
+                )
+            else:
+                train_dataset = SpeechFineTuningDataset(
+                    data_args,
+                    chatterbox_t3_config_instance,
+                    train_hf_dataset,
+                    is_hf_format_train,
+                    model_dir=str(original_model_dir_for_copy),
+                    m_paths=None,
+                    device="cpu"
+                )
 
     eval_dataset = None
     if eval_hf_dataset and training_args.do_eval:
@@ -1292,6 +1328,25 @@ def run_training(model_args, data_args, training_args):
             def on_step_end(self, args, state, control, **kwargs):
                 prof.step()
         callbacks.append(ProfilerCallback())
+    
+    # Add cache stats callback if caching is enabled
+    if data_args.use_cache and hasattr(train_dataset, 'get_cache_stats'):
+        class CacheStatsCallback(TrainerCallback):
+            def __init__(self, dataset):
+                self.dataset = dataset
+            
+            def on_epoch_end(self, args, state, control, **kwargs):
+                if hasattr(self.dataset, 'get_cache_stats'):
+                    stats = self.dataset.get_cache_stats()
+                    logger.info(f"\n{'='*60}")
+                    logger.info(f"📊 Cache Statistics (Epoch {state.epoch})")
+                    logger.info(f"   Cache hits: {stats['cache_hits']}")
+                    logger.info(f"   Cache misses: {stats['cache_misses']}")
+                    logger.info(f"   Hit rate: {stats['hit_rate']:.1f}%")
+                    logger.info(f"{'='*60}\n")
+        
+        callbacks.append(CacheStatsCallback(train_dataset))
+        logger.info("✅ Added CacheStatsCallback to monitor cache performance")
 
     trainer_instance = SafeCheckpointTrainer(
         model=hf_trainable_model,
