@@ -638,31 +638,53 @@ class SpeechDataCollator:
         features = valid_features
 
         batch_size = len(features)
-        text_tokens_list = [f["text_tokens"] for f in features]
-        speech_tokens_list = [f["speech_tokens"] for f in features]
+        
+        # Ensure all tensors are on CPU first (they will be moved to correct device by Trainer)
+        # This is important for cached data which may be on CPU
+        text_tokens_list = [f["text_tokens"].cpu() if torch.is_tensor(f["text_tokens"]) else f["text_tokens"] for f in features]
+        speech_tokens_list = [f["speech_tokens"].cpu() if torch.is_tensor(f["speech_tokens"]) else f["speech_tokens"] for f in features]
+        
         max_text_len = max(len(t) for t in text_tokens_list)
         max_speech_len = max(len(t) for t in speech_tokens_list)
 
-        # Pad text tokens
+        # Pad text tokens (on CPU)
         padded_text_tokens = torch.stack([
             F.pad(t, (0, max_text_len - len(t)), value=self.text_pad_token_id)
             for t in text_tokens_list
         ])  # shape: (B, max_text_len)
 
-        # Pad speech tokens
+        # Pad speech tokens (on CPU)
         padded_speech_tokens = torch.stack([
             F.pad(s, (0, max_speech_len - len(s)), value=self.speech_pad_token_id)
             for s in speech_tokens_list
         ])  # shape: (B, max_speech_len)
 
-        # Collect lengths
-        text_token_lens = torch.stack([f["text_token_lens"] for f in features])      # (B,)
-        speech_token_lens = torch.stack([f["speech_token_lens"] for f in features])  # (B,)
+        # Collect lengths (ensure CPU)
+        text_token_lens = torch.stack([
+            f["text_token_lens"].cpu() if torch.is_tensor(f["text_token_lens"]) else torch.tensor(f["text_token_lens"])
+            for f in features
+        ])  # (B,)
+        speech_token_lens = torch.stack([
+            f["speech_token_lens"].cpu() if torch.is_tensor(f["speech_token_lens"]) else torch.tensor(f["speech_token_lens"])
+            for f in features
+        ])  # (B,)
 
-        # Collect conditionals
-        t3_cond_speaker_emb = torch.stack([f["t3_cond_speaker_emb"] for f in features])             # (B, D_speaker)
-        t3_cond_prompt_speech_tokens = torch.stack([f["t3_cond_prompt_speech_tokens"] for f in features])  # (B, prompt_len)
-        emotion_adv_scalars = torch.stack([f["t3_cond_emotion_adv"] for f in features])  # (B, 1, 1)
+        # Collect conditionals (ensure CPU)
+        t3_cond_speaker_emb = torch.stack([
+            f["t3_cond_speaker_emb"].cpu() if torch.is_tensor(f["t3_cond_speaker_emb"]) else f["t3_cond_speaker_emb"]
+            for f in features
+        ])  # (B, D_speaker)
+        
+        t3_cond_prompt_speech_tokens = torch.stack([
+            f["t3_cond_prompt_speech_tokens"].cpu() if torch.is_tensor(f["t3_cond_prompt_speech_tokens"]) else f["t3_cond_prompt_speech_tokens"]
+            for f in features
+        ])  # (B, prompt_len)
+        
+        emotion_adv_scalars = torch.stack([
+            f["t3_cond_emotion_adv"].cpu() if torch.is_tensor(f["t3_cond_emotion_adv"]) else torch.tensor(f["t3_cond_emotion_adv"])
+            for f in features
+        ])  # (B,) or (B, 1, 1)
+        
         t3_cond_emotion_adv = emotion_adv_scalars.view(batch_size, 1, 1)
 
         IGNORE_ID = -100
@@ -676,6 +698,8 @@ class SpeechDataCollator:
         # Mask positions t >= (text_len - 1)
         text_lens_minus_one = (text_token_lens - 1).clamp(min=0)  # (B,)
         arange_text = torch.arange(T_text, device=shifted_text.device)  # (T_text,)
+        # Ensure both tensors on same device before comparison
+        text_lens_minus_one = text_lens_minus_one.to(arange_text.device)
         mask_pad_text = arange_text[None] >= text_lens_minus_one[:, None]  # (B, T_text)
 
         labels_text = shifted_text.clone()           # (B, T_text)
@@ -689,6 +713,8 @@ class SpeechDataCollator:
         # Mask positions t >= (speech_len - 1)
         speech_lens_minus_one = (speech_token_lens - 1).clamp(min=0)  # (B,)
         arange_speech = torch.arange(T_speech, device=shifted_speech.device)  # (T_speech,)
+        # Ensure both tensors on same device before comparison
+        speech_lens_minus_one = speech_lens_minus_one.to(arange_speech.device)
         mask_pad_speech = arange_speech[None] >= speech_lens_minus_one[:, None]  # (B, T_speech)
 
         # Mask positions t < prompt_len
