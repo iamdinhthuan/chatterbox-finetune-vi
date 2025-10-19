@@ -63,28 +63,103 @@ def normalize_text(text: str) -> str:
     return text
 
 
-def split_sentences(text: str, min_length=10):
+def split_long_by_commas(text: str, max_chars: int = 120, min_words_before_comma: int = 4):
+    """
+    Split long sentence by commas (inspired by F5-TTS)
+    
+    Rules:
+    - Only split at comma if text BEFORE comma has >= min_words_before_comma
+    - Accumulate parts until exceeding max_chars, then split
+    - Add period at end of each split part (treating them as sentences)
+    
+    Args:
+        text: Input text
+        max_chars: Max characters before splitting (default: 120)
+        min_words_before_comma: Min words before comma to allow split (default: 4)
+    
+    Returns:
+        List of text segments with punctuation
+    """
+    text = text.strip()
+    
+    # If short enough, don't split
+    if len(text) <= max_chars:
+        return [text]
+    
+    # Split by commas
+    parts = [p.strip() for p in text.split(',')]
+    
+    # If no commas, can't split
+    if len(parts) == 1:
+        return [text]
+    
+    segments = []
+    buffer = ""
+    
+    for idx, part in enumerate(parts):
+        # Try adding this part to buffer
+        candidate = part if not buffer else (buffer + ', ' + part)
+        
+        # If still under limit, keep accumulating
+        if len(candidate) <= max_chars:
+            buffer = candidate
+            continue
+        
+        # Exceeds limit → want to split before this part
+        if buffer:
+            # Count words in buffer
+            word_count = len([w for w in re.findall(r'\w+', buffer, flags=re.UNICODE)])
+            
+            if word_count >= min_words_before_comma:
+                # Enough words → split here, add period
+                seg_text = buffer.strip()
+                if not seg_text.endswith('.'):
+                    seg_text += '.'
+                segments.append(seg_text)
+                buffer = part
+            else:
+                # Not enough words → force accumulate (even if long)
+                buffer = candidate
+        else:
+            buffer = candidate
+    
+    # Add remaining buffer
+    if buffer:
+        seg_text = buffer.strip()
+        if not seg_text.endswith('.'):
+            seg_text += '.'
+        segments.append(seg_text)
+    
+    # If only 1 segment, treat as no split
+    return segments if len(segments) > 1 else [text]
+
+
+def split_sentences(text: str, min_length=10, max_chars=120, min_words_before_comma=4):
     """
     Split text into sentences by punctuation (inspired by F5-TTS)
-    Supports: . ? ! ; (both English and Vietnamese punctuation)
+    
+    Two-step process:
+    1. Split by sentence-ending punctuation: . ? ! ;
+    2. For long sentences, split by commas intelligently
     
     Args:
         text: Input text
         min_length: Minimum sentence length to keep (default: 10 chars)
+        max_chars: Max chars for comma-splitting long sentences (default: 120)
+        min_words_before_comma: Min words before comma to split (default: 4)
     
     Returns:
         List of sentences with punctuation preserved
     """
-    # Pattern: split by sentence-ending punctuation
+    # Step 1: Split by sentence-ending punctuation
     # Matches: . ? ! ; and their Vietnamese/Chinese equivalents 。！？；
-    # Keep the punctuation with the sentence
     pattern = r'([.?!。！？]+|[;；]+)'
     
     # Split while keeping delimiters
     parts = re.split(pattern, text)
     
     # Combine text with its punctuation
-    sentences = []
+    primary_sentences = []
     i = 0
     
     while i < len(parts):
@@ -103,12 +178,27 @@ def split_sentences(text: str, min_length=10):
         
         # Only keep non-empty sentences above minimum length
         if sentence and len(sentence.strip()) >= min_length:
-            sentences.append(sentence)
+            primary_sentences.append(sentence)
     
-    return sentences if sentences else [text]
+    # If no sentences found, use original text
+    if not primary_sentences:
+        primary_sentences = [text]
+    
+    # Step 2: Split long sentences by commas
+    final_sentences = []
+    for sentence in primary_sentences:
+        # Check if sentence is too long
+        if len(sentence) > max_chars:
+            # Try splitting by commas
+            sub_segments = split_long_by_commas(sentence, max_chars, min_words_before_comma)
+            final_sentences.extend(sub_segments)
+        else:
+            final_sentences.append(sentence)
+    
+    return final_sentences
 
 
-def cross_fade_audio(audio_segments, sample_rate=24000, fade_duration_ms=100):
+def cross_fade_audio(audio_segments, sample_rate=24000, fade_duration_ms=250):
     """
     Merge audio segments with cross-fading
     
@@ -259,7 +349,7 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="Enable debug logging")
     parser.add_argument("--no_drop_tokens", action="store_true", help="Disable drop_invalid_tokens (for debugging)")
     parser.add_argument("--split_sentences", action="store_true", help="Split text by sentences and merge with cross-fading")
-    parser.add_argument("--fade_duration", type=int, default=100, help="Cross-fade duration in ms (default: 100)")
+    parser.add_argument("--fade_duration", type=int, default=250, help="Cross-fade duration in ms (default: 100)")
     
     args = parser.parse_args()
     
