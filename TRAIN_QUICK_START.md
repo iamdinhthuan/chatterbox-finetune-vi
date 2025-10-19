@@ -103,6 +103,8 @@ Training: 100%|████████████| 1250/1250 [06:18<00:00]  �
 - `--use_cache`: Bật on-the-fly caching (epoch 1 slow, epoch 2+ fast!)
 - `--cache_dir`: Thư mục cache (mặc định: ./cache)
 - `--cache_device`: Device cho computing cache - cuda hoặc cpu (mặc định: cuda)
+  - **cuda**: Nhanh nhất, tự động set `num_workers=0` (CUDA không dùng được với multiprocessing)
+  - **cpu**: Chậm hơn nhưng có thể dùng `num_workers>0`
 
 ### Mixed Precision (Mới):
 - `--fp16`: Sử dụng FP16 mixed precision (nhanh hơn, ít VRAM hơn)
@@ -231,6 +233,19 @@ python train.py --csv metadata.csv --epochs 1
 
 ## 🐛 Troubleshooting:
 
+### Q: "Cannot re-initialize CUDA in forked subprocess"?
+A: Đây là warning bình thường khi dùng `--cache_device cuda`. 
+Script tự động set `num_workers=0` để fix issue này.
+
+Nếu vẫn gặp lỗi, chắc chắn bạn đang chạy script với `python` không phải `python -c`:
+```bash
+# ✅ CORRECT
+python train.py --csv ... --use_cache
+
+# ❌ WRONG (sẽ có multiprocessing issue)
+python -c "import train; train.main()"
+```
+
 ### Q: Epoch 1 quá chậm?
 A: Bình thường! Epoch 1 phải compute embeddings. Epoch 2+ sẽ nhanh 4-5x.
 
@@ -245,6 +260,14 @@ ls -lh ./cache | head -10
 A: Giảm batch size hoặc dùng CPU cho cache:
 ```bash
 python train.py --cache_device cpu --batch_size 4
+```
+
+### Q: Muốn dùng CPU cache với multiprocessing?
+A: Dùng `--cache_device cpu` thì có thể dùng nhiều workers:
+```bash
+# CPU cache với 8 workers (parallel)
+python train.py --cache_device cpu --batch_size 8
+# Script sẽ tự động dùng num_workers=8
 ```
 
 ### Q: Out of disk space?

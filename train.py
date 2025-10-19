@@ -7,6 +7,16 @@ import os
 import sys
 import argparse
 from pathlib import Path
+import torch
+import multiprocessing
+
+# CRITICAL: Set multiprocessing start method to 'spawn' for CUDA compatibility
+# Must be done before any other imports that might use multiprocessing
+if __name__ == "__main__":
+    try:
+        multiprocessing.set_start_method('spawn', force=True)
+    except RuntimeError:
+        pass  # Already set
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -233,6 +243,14 @@ def main():
             cache_dir=args.cache_dir,
             cache_device=args.cache_device,
         )
+    
+    # Adjust num_workers for CUDA caching compatibility
+    num_workers = 8
+    if args.use_cache and args.cache_device == 'cuda':
+        print("\n⚠️  CUDA caching enabled: Setting dataloader_num_workers=0")
+        print("   (CUDA cannot be used in forked subprocesses)")
+        print("   Cache will be computed on main process with GPU")
+        num_workers = 0
 
     # Create training arguments
     training_args = CustomTrainingArguments(
@@ -267,8 +285,8 @@ def main():
         data_seed=42,
         bf16=True if not args.fp16 else False,
         fp16=args.fp16,
-        dataloader_num_workers=8,
-        dataloader_persistent_workers=True,
+        dataloader_num_workers=num_workers,
+        dataloader_persistent_workers=True if num_workers > 0 else False,
         seed=42,
         report_to=["tensorboard"],
         remove_unused_columns=False,
