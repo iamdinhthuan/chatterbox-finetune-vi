@@ -522,7 +522,7 @@ def create_interface():
                     base_model_path = gr.Textbox(
                         value=default_base_model,
                         label="Base Model Path",
-                        placeholder="./vietnamese/pretrained_model_download"
+                        placeholder="/checkpoints/vietnamese/pretrained_model_download"
                     )
                     
                     device = gr.Radio(
