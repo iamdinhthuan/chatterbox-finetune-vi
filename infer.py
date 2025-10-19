@@ -22,29 +22,90 @@ from src.chatterbox.models.voice_encoder import VoiceEncoder
 from src.chatterbox.models.tokenizers import EnTokenizer
 
 
-# Note: Removed normalize_vietnamese() function - not needed
-# The model.generate() method already handles text normalization internally via punc_norm()
-# Training doesn't use normalize_vietnamese, so inference shouldn't either for consistency
+# Text normalization and sentence splitting (inspired by F5-TTS)
 
 
-def split_sentences(text: str):
-    """Split text into sentences by . and ?"""
-    # Split by . or ? but keep the punctuation
-    sentences = re.split(r'([.?!])', text)
+def normalize_text(text: str) -> str:
+    """
+    Normalize text for TTS (inspired by F5-TTS)
+    - Remove multiple spaces
+    - Fix punctuation spacing
+    - Normalize quotes and dashes
+    """
+    if not text or len(text.strip()) == 0:
+        return text
+    
+    # Remove multiple spaces, tabs, newlines
+    text = re.sub(r'\s+', ' ', text)
+    
+    # Fix punctuation - remove space before punctuation
+    text = re.sub(r'\s+([,.!?;:])', r'\1', text)
+    
+    # Fix punctuation - add space after punctuation if missing
+    text = re.sub(r'([,.!?;:])([^\s\d])', r'\1 \2', text)
+    
+    # Normalize quotes and dashes (Vietnamese style)
+    replacements = [
+        ('"', '"'),   # Smart quote to straight quote
+        ('"', '"'),   # Smart quote to straight quote  
+        (''', "'"),   # Smart apostrophe
+        (''', "'"),   # Smart apostrophe
+        ('–', '-'),   # En dash to hyphen
+        ('—', '-'),   # Em dash to hyphen
+        ('…', '...'), # Ellipsis
+    ]
+    for old, new in replacements:
+        text = text.replace(old, new)
+    
+    # Remove leading/trailing whitespace
+    text = text.strip()
+    
+    return text
+
+
+def split_sentences(text: str, min_length=10):
+    """
+    Split text into sentences by punctuation (inspired by F5-TTS)
+    Supports: . ? ! ; (both English and Vietnamese punctuation)
+    
+    Args:
+        text: Input text
+        min_length: Minimum sentence length to keep (default: 10 chars)
+    
+    Returns:
+        List of sentences with punctuation preserved
+    """
+    # Pattern: split by sentence-ending punctuation
+    # Matches: . ? ! ; and their Vietnamese/Chinese equivalents 。！？；
+    # Keep the punctuation with the sentence
+    pattern = r'([.?!。！？]+|[;；]+)'
+    
+    # Split while keeping delimiters
+    parts = re.split(pattern, text)
     
     # Combine text with its punctuation
-    result = []
-    for i in range(0, len(sentences)-1, 2):
-        sentence = sentences[i].strip()
-        punct = sentences[i+1] if i+1 < len(sentences) else ''
-        if sentence:
-            result.append(sentence + punct)
+    sentences = []
+    i = 0
     
-    # Handle last sentence if no punctuation
-    if len(sentences) % 2 == 1 and sentences[-1].strip():
-        result.append(sentences[-1].strip())
+    while i < len(parts):
+        if i >= len(parts):
+            break
+            
+        # Get text part
+        sentence = parts[i].strip()
+        
+        # Get punctuation if exists
+        if i + 1 < len(parts) and re.match(pattern, parts[i+1]):
+            sentence += parts[i+1]
+            i += 2
+        else:
+            i += 1
+        
+        # Only keep non-empty sentences above minimum length
+        if sentence and len(sentence.strip()) >= min_length:
+            sentences.append(sentence)
     
-    return [s for s in result if s.strip()]
+    return sentences if sentences else [text]
 
 
 def cross_fade_audio(audio_segments, sample_rate=24000, fade_duration_ms=100):
@@ -269,8 +330,12 @@ def main():
         traceback.print_exc()
         return
     
-    # Display text info (model.generate() will do normalization internally via punc_norm())
-    print(f"📝 Text: {args.text}\n")
+    # Normalize text (inspired by F5-TTS)
+    normalized_text = normalize_text(args.text)
+    print(f"📝 Original text: {args.text}")
+    if normalized_text != args.text:
+        print(f"📝 Normalized text: {normalized_text}")
+    print()
     
     # Prepare voice conditioning
     if args.voice:
@@ -295,8 +360,8 @@ def main():
     print(f"🎵 Generating speech...")
     try:
         if args.split_sentences:
-            # Split text into sentences
-            sentences = split_sentences(args.text)
+            # Split normalized text into sentences (inspired by F5-TTS)
+            sentences = split_sentences(normalized_text)
             print(f"📝 Split into {len(sentences)} sentences:")
             for i, sent in enumerate(sentences, 1):
                 print(f"   {i}. {sent}")
@@ -325,7 +390,7 @@ def main():
         else:
             # Generate full text at once
             wav = model.generate(
-                args.text,  # model.generate() will normalize internally via punc_norm()
+                normalized_text,  # Use normalized text
                 temperature=args.temperature,
                 cfg_weight=args.cfg_weight,
                 min_tokens=args.min_tokens,
