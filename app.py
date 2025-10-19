@@ -143,40 +143,123 @@ class ModelManager:
         self.checkpoint_path = None
         self.base_model_path = None
         
+    def find_latest_checkpoint(self, checkpoint_path):
+        """Find the latest checkpoint file in directory"""
+        checkpoint_path = Path(checkpoint_path)
+        
+        # If it's a file, return it
+        if checkpoint_path.is_file():
+            return checkpoint_path
+        
+        # If it's a directory, find latest checkpoint
+        if checkpoint_path.is_dir():
+            # Look for checkpoint subdirectories (checkpoint-XXXXX)
+            checkpoint_dirs = sorted(
+                [d for d in checkpoint_path.glob("checkpoint-*") if d.is_dir()],
+                key=lambda x: int(x.name.split("-")[-1]) if x.name.split("-")[-1].isdigit() else 0,
+                reverse=True
+            )
+            
+            if checkpoint_dirs:
+                return checkpoint_dirs[0]
+            
+            # No checkpoint subdirs, use the directory itself
+            return checkpoint_path
+        
+        return checkpoint_path
+    
     def load_model(self, checkpoint_path, base_model_path, device):
-        """Load or reload model if paths changed"""
+        """Load or reload model if paths changed (following infer.py logic)"""
         if (self.model is None or 
             self.checkpoint_path != checkpoint_path or 
             self.base_model_path != base_model_path or
             self.device != device):
             
-            print(f"🔄 Loading model from {checkpoint_path}...")
+            from safetensors.torch import load_file
+            from src.chatterbox.models.t3 import T3
+            from src.chatterbox.models.s3gen import S3Gen
+            from src.chatterbox.models.voice_encoder import VoiceEncoder
+            from src.chatterbox.models.tokenizers import EnTokenizer
             
-            # Load model
-            self.model = ChatterboxTTS.from_pretrained(
-                base_model_path,
-                device=device
-            )
+            print(f"🔄 Loading model...")
             
-            # Load fine-tuned checkpoint
-            checkpoint_file = Path(checkpoint_path)
-            if checkpoint_file.is_dir():
-                # Find the latest checkpoint
-                ckpt_files = list(checkpoint_file.glob("*.safetensors"))
-                if ckpt_files:
-                    checkpoint_file = max(ckpt_files, key=lambda x: x.stat().st_mtime)
+            checkpoint_path = Path(checkpoint_path)
+            base_model_path = Path(base_model_path)
             
-            if checkpoint_file.exists():
-                from safetensors.torch import load_file
-                state_dict = load_file(str(checkpoint_file))
+            # Find latest checkpoint
+            checkpoint_path = self.find_latest_checkpoint(checkpoint_path)
+            print(f"📁 Using checkpoint: {checkpoint_path}")
+            
+            # Check if checkpoint has full model files
+            has_full_model = (checkpoint_path / "ve.safetensors").exists()
+            
+            if has_full_model:
+                # Checkpoint has all files, load directly
+                print("   ✓ Found complete model in checkpoint")
+                self.model = ChatterboxTTS.from_local(str(checkpoint_path), device=device)
+            else:
+                # Checkpoint only has T3, need to combine with pretrained
+                print("   ✓ Loading finetuned T3 from checkpoint")
+                print("   ✓ Loading pretrained VE/S3Gen from base model")
                 
-                # Filter and load T3 weights
-                t3_weights = {k.replace("t3.", ""): v for k, v in state_dict.items() if k.startswith("t3.")}
-                if t3_weights:
-                    self.model.t3.load_state_dict(t3_weights, strict=False)
-                    print(f"✅ Loaded T3 weights from checkpoint")
+                # Load pretrained components
+                ve = VoiceEncoder()
+                ve.load_state_dict(load_file(base_model_path / "ve.safetensors"))
+                ve.to(device).eval()
+                
+                s3gen = S3Gen()
+                s3gen.load_state_dict(load_file(base_model_path / "s3gen.safetensors"), strict=False)
+                s3gen.to(device).eval()
+                
+                # Load finetuned T3
+                t3 = T3()
+                
+                # Try different checkpoint filenames
+                checkpoint_file = None
+                for filename in ["model.safetensors", "pytorch_model.safetensors", "t3_cfg.safetensors"]:
+                    if (checkpoint_path / filename).exists():
+                        checkpoint_file = checkpoint_path / filename
+                        break
+                
+                if checkpoint_file is None:
+                    raise FileNotFoundError(f"No model checkpoint found in {checkpoint_path}")
+                
+                print(f"   Loading from: {checkpoint_file.name}")
+                t3_checkpoint = load_file(checkpoint_file)
+                
+                # Extract T3 state dict - checkpoint has "t3." prefix
+                t3_state = {}
+                for key, value in t3_checkpoint.items():
+                    if key.startswith("t3."):
+                        new_key = key.replace("t3.", "", 1)
+                        t3_state[new_key] = value
+                
+                if not t3_state:
+                    # No "t3." prefix, use as is
+                    t3_state = t3_checkpoint
+                
+                print(f"   Loaded {len(t3_state)} T3 parameters")
+                t3.load_state_dict(t3_state)
+                t3.to(device).eval()
+                
+                # Load tokenizer
+                tokenizer_path = checkpoint_path / "tokenizer.json"
+                if not tokenizer_path.exists():
+                    tokenizer_path = base_model_path / "tokenizer.json"
+                tokenizer = EnTokenizer(str(tokenizer_path))
+                
+                # Load conds if available
+                conds = None
+                conds_path = checkpoint_path / "conds.pt"
+                if not conds_path.exists():
+                    conds_path = base_model_path / "conds.pt"
+                if conds_path.exists():
+                    from src.chatterbox.tts import Conditionals
+                    map_location = torch.device('cpu') if device in ["cpu", "mps"] else None
+                    conds = Conditionals.load(str(conds_path), map_location=map_location).to(device)
+                
+                self.model = ChatterboxTTS(t3, s3gen, ve, tokenizer, device, conds=conds)
             
-            self.model.to(device)
             self.checkpoint_path = checkpoint_path
             self.base_model_path = base_model_path
             self.device = device
